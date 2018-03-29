@@ -140,6 +140,7 @@ module.exports = {
   },
   // find methods who's last argument is a function of the form '(err, something)''
   // and awaitify them:
+  // UNDER CONSTRUCTION:
   replaceCallbacksWithAwait: (ast) => {
     ast.find(codeshift.Program)
     .forEach(p => {
