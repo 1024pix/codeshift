@@ -38,7 +38,7 @@ module.exports = {
             [
               codeshift.variableDeclarator(
                 codeshift.identifier('tap'), codeshift.callExpression(
-                  codeshift.identifier('require'), [codeshift.identifier('tap')]
+                  codeshift.identifier('require'), [codeshift.literal('tap')]
                 )
             )]
           );
