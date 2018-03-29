@@ -7,6 +7,7 @@ tap.test('can convert code.expect statements to tap', t => {
   replaceCodeExpect(ast);
   const resultText = ast.toSource();
   console.log(resultText);
-  // t.match(resultText, expectedText);
+  // todo: strip eol and then match?
+  t.match(resultText, expectedText);
   t.end();
 });

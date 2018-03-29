@@ -10,7 +10,7 @@
     "url": "https://github.com/firstandthird/codeshift.git"
   },
   "scripts": {
-    "start": "node convertToTap.js",
+    "test": "tap tests/test.*.js",
     "lint": "eslint ."
   },
   "devDependencies": {

@@ -18,17 +18,8 @@ function replaceServerInject(p) {
   const oldBody = callback.body;
   // todo: add the body code back minus the done callback:
   p.parentPath.replace(response);
+  oldBody.body.reverse();
   oldBody.body.forEach(expr => {
-    // if the callback has a server.inject call, replace it too:
-    if (expr.expression.type === 'CallExpression') {
-      const callee = expr.expression.callee;
-      if (callee.object && callee.object.name === 'server') {
-        if (callee.property && callee.property.name === 'inject') {
-          // todo: do a recrusive replaceserver here:
-          replaceServerInject(expr.expression);
-        }
-      }
-    }
     p.parentPath.insertAfter(expr);
   });
 }

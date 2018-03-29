@@ -120,13 +120,26 @@ module.exports = {
   },
   // todo: get all server.injects including ones in callback
   replaceServerInject: (ast) => {
-    ast.find(codeshift.CallExpression)
-      // get all "server.inject" expressions:
-      .filter(pathway => selectCallExpression(pathway, 'server', 'inject'))
+    ast.find(codeshift.Program)
       .forEach(p => {
-        // todo: use types.visit to get all server.inject statements beneath this one
-        // then loop over and awaitify each of them
-        replaceServerInject(p);
+        // use types.visit to get any server.inject statements beneath this one
+        // then loop over and awaitify each of them with replaceServerInject(p);
+        const injects = [];
+        types.visit(p, {
+          visitCallExpression(func) {
+            const name = getFunctionNameFromFunctionExpression(func.value);
+            if (name === 'inject') {
+              if (!injects.includes(func)) {
+                injects.push(func);
+              }
+            }
+            return this.traverse(func);
+          }
+        });
+        injects.reverse();
+        injects.forEach(func => {
+          replaceServerInject(func);
+        });
       });
   },
   // find methods who's last argument is a function of the form '(err, something)''
