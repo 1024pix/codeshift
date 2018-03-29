@@ -1,22 +1,11 @@
 const { getAstFromFilePath, writeToFile } = require('./lib/utilities.js');
-
-// Tree Replacement Rules
-// first part of each rule contains a find/filter directive to get the correct subtree
-// second part of each rule is a replaceWith directive to modify the subtree
-
 // rules to converts hapi < 17 to hapi 17:
-const hapiReplacement = require('./rules/hapiRules.js');
+const hapiRules = require('./rules/hapiRules.js');
 // rules to convert lab tests to tap tests:
-const labReplacement = require('./rules/labRules.js');
+const labRules = require('./rules/labRules.js');
 
-const convertLabFile = (ast) => {
-  Object.values(labReplacement).forEach(rule => {
-    rule(ast);
-  });
-};
-
-const convertHapiFile = (ast) => {
-  Object.values(hapiReplacement).forEach(rule => {
+const convertFile = (ast, ruleset) => {
+  Object.values(ruleset).forEach(rule => {
     rule(ast);
   });
 };
@@ -74,14 +63,14 @@ const argv = require('yargs')
 // parse and apply transformation rules:
 const ast = getAstFromFilePath(argv.input);
 if (argv.ruleset === 'hapi17' || argv.ruleset === 'all') {
-  convertHapiFile(ast);
+  convertFile(ast, hapiRules)
 }
 if (argv.ruleset === 'labToTap' || argv.ruleset === 'all') {
-  convertLabFile(ast);
+  convertFile(ast, labRules);
 }
 
 // convert back to text:
-const result = ast.toSource();
+const result = ast.toSource({ quote: 'single' });
 
 // print or write it out to file!
 if (!argv.output) {
