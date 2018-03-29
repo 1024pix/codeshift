@@ -15,6 +15,7 @@ const {
 const {
   replaceCallbackWithAwait,
   replaceCallbackWithAssignment,
+  replaceServerInject,
   removeReturnParent
 } = require('../helpers/replaceHelpers.js');
 
@@ -117,25 +118,30 @@ module.exports = {
       });
     // replace any ('if (err) { }')
   },
-  // todo: move callback body beneath it
+  // todo: get all server.injects including ones in callback
   replaceServerInject: (ast) => {
     ast.find(codeshift.CallExpression)
       // get all "server.inject" expressions:
       .filter(pathway => selectCallExpression(pathway, 'server', 'inject'))
-      .replaceWith(p => {
-        // get name:
-        const param = p.value.arguments[1].params[0].name;
-        const call = codeshift.callExpression(codeshift.identifier('inject'), [p.value.arguments[0]]);
-        const awaitExpr = codeshift.awaitExpression(call);
-        const response = codeshift.variableDeclaration(
-          'const',
-          [codeshift.variableDeclarator(codeshift.identifier(param), awaitExpr)]
-        );
-        // const body = p.get('arguments').get(1);
-        // console.log('body');
-        // console.log(body);
-        // todo: add the body code back minus the done callback:
-        return response;
+      .forEach(p => {
+        // todo: use types.visit to get all server.inject statements beneath this one
+        // then loop over and awaitify each of them
+        replaceServerInject(p);
       });
   },
+  // find methods who's last argument is a function of the form '(err, something)''
+  // and awaitify them:
+  replaceCallbacksWithAwait: (ast) => {
+    ast.find(codeshift.CallExpression)
+      .filter(pathway => {
+        const args = pathway.value.arguments;
+        if (args.length === 2) {
+          // console.log(pathway.value.arguments[0]);
+          // console.log('--------------------');
+        }
+        return pathway.value.arguments.length === 2;
+      })
+      .forEach(p => {
+      });
+  }
 };

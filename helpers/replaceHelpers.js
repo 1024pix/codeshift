@@ -4,6 +4,35 @@ const { getFunctionNameFromFunctionExpression } = require('./getHelpers');
 const types = require('ast-types');
 const codeshift = require('jscodeshift');
 
+function replaceServerInject(p) {
+  // get name:
+  const param = p.value.arguments[1].params[0].name;
+  const call = codeshift.callExpression(codeshift.identifier('inject'), [p.value.arguments[0]]);
+  const awaitExpr = codeshift.awaitExpression(call);
+  const response = codeshift.variableDeclaration(
+    'const',
+    [codeshift.variableDeclarator(codeshift.identifier(param), awaitExpr)]
+  );
+  // get the body of the inject callback and put it back after the await expr:
+  const callback = p.value.arguments[1];
+  const oldBody = callback.body;
+  // todo: add the body code back minus the done callback:
+  p.parentPath.replace(response);
+  oldBody.body.forEach(expr => {
+    // if the callback has a server.inject call, replace it too:
+    if (expr.expression.type === 'CallExpression') {
+      const callee = expr.expression.callee;
+      if (callee.object && callee.object.name === 'server') {
+        if (callee.property && callee.property.name === 'inject') {
+          // todo: do a recrusive replaceserver here:
+          replaceServerInject(expr.expression);
+        }
+      }
+    }
+    p.parentPath.insertAfter(expr);
+  });
+}
+
 // remove a parent return statement
 // useful when nuking function calls in 'return func();' form
 function removeReturnParent(func) {
@@ -82,7 +111,7 @@ function replaceCodeExpect(pathway) {
     call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('isA'));
     return { parent: pathway.parentPath.parentPath.parentPath.parentPath.parentPath, result: call };
   }
-  // todo:
+  // todo: not sure this works yet:
   // if it's a to.not.be.an / to.not.be.a:
   if (seen.be && (seen.an || seen.a) && seen.not) {
     // .to.be.an."type"();
@@ -113,5 +142,6 @@ module.exports = {
   replaceCallbackWithAwait,
   replaceCallbackWithAssignment,
   removeReturnParent,
-  replaceCodeExpect
+  replaceCodeExpect,
+  replaceServerInject
 };
