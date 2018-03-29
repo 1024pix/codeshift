@@ -74,7 +74,6 @@ module.exports = {
                     //   return done(null, simpleAwaitExpression.name);
                     const replacement = replaceCallbackWithAssignment(func, 'const', functionName);
                     if (func.parentPath.value.type === 'ReturnStatement') {
-                      console.log(replacement);
                       func.parentPath.replace(replacement);
                     } else {
                       func.replace(replacement);
@@ -92,8 +91,6 @@ module.exports = {
                 return this.traverse(func);
               }
             });
-
-            // console.log(expressionStatement);
             // todo: convert explicit calls to done(err) to 'throw err';
             // todo: convert explicit calls to done(err, value) to 'const func1 = value;'
             // for any other type of expression statement just push it to the body:
@@ -118,11 +115,10 @@ module.exports = {
       });
     // replace any ('if (err) { }')
   },
-  // todo: get all server.injects including ones in callback
   replaceServerInject: (ast) => {
     ast.find(codeshift.Program)
       .forEach(p => {
-        // use types.visit to get any server.inject statements beneath this one
+        // use types.visit to get any server.inject statements
         // then loop over and awaitify each of them with replaceServerInject(p);
         const injects = [];
         types.visit(p, {
@@ -145,16 +141,39 @@ module.exports = {
   // find methods who's last argument is a function of the form '(err, something)''
   // and awaitify them:
   replaceCallbacksWithAwait: (ast) => {
-    ast.find(codeshift.CallExpression)
-      .filter(pathway => {
-        const args = pathway.value.arguments;
-        if (args.length === 2) {
-          // console.log(pathway.value.arguments[0]);
-          // console.log('--------------------');
+    ast.find(codeshift.Program)
+    .forEach(p => {
+      const calls = [];
+      types.visit(p, {
+        visitCallExpression(func) {
+          const lastArg = getLastArgumentFromFunction(func.value);
+          // if it's a callback method:
+          if (lastArg.type === 'ArrowFunctionExpression') {
+            const callbackArgs = lastArg.params;
+            if (callbackArgs.length > 0) {
+              if (callbackArgs[0].type === 'Identifier') {
+                ['exc', 'err'].forEach(errName => {
+                  if (callbackArgs[0].name.startsWith(errName)) {
+                    calls.push(func);
+                  }
+                });
+              }
+            }
+          }
+          this.traverse(func);
         }
-        return pathway.value.arguments.length === 2;
-      })
-      .forEach(p => {
       });
+      calls.reverse();
+      calls.forEach(func => {
+        // get the callback:
+        const callback = getLastArgumentFromFunction(func.value);
+        if (callback.params.length === 1) {
+          func.replace(replaceCallbackWithAwait(func));
+        }
+        // get the callback name that we'll use for the variable assignment:
+        const varName = callback.params[1].name;
+        func.replace(replaceCallbackWithAssignment(func, 'const', varName));
+      });
+    });
   }
 };

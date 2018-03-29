@@ -16,7 +16,6 @@ function replaceServerInject(p) {
   // get the body of the inject callback and put it back after the await expr:
   const callback = p.value.arguments[1];
   const oldBody = callback.body;
-  // todo: add the body code back minus the done callback:
   p.parentPath.replace(response);
   oldBody.body.reverse();
   oldBody.body.forEach(expr => {
@@ -124,7 +123,6 @@ function replaceCodeExpect(pathway) {
     call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('equal'));
     return { parent: pathway.parentPath.parentPath.parentPath.parentPath, result: call };
   }
-  // console.log(Object.keys(seen));
   return {};
 }
 

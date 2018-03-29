@@ -2,6 +2,9 @@
 
 // helper to always get the name of a function definition or function call:
 function getFunctionNameFromFunctionExpression(functionExpression) {
+  if (functionExpression.type === 'ArrowFunctionExpression') {
+    return '';
+  }
   // object definition form, eg ' { func1(...) { ....} }'
   if (functionExpression.type === 'Property') {
     return functionExpression.key.name;
