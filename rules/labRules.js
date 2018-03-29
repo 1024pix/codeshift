@@ -6,7 +6,8 @@ const {
   selectCallExpression
 } = require('../helpers/selectionHelpers.js');
 
-const { replaceCodeExpect, removeReturnParent } = require('../helpers/replaceHelpers');
+const replaceCodeExpect = require('../helpers/replaceCodeExpect');
+const removeReturnParent = require('../helpers/removeReturnParent');
 
 const { getFunctionNameFromFunctionExpression } = require('../helpers/getHelpers');
 

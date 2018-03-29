@@ -1,68 +1,10 @@
-// contains helpers that assist with transforming sub-trees into other sub-trees
-const { getFunctionNameFromFunctionExpression } = require('./getHelpers');
-
-const types = require('ast-types');
 const codeshift = require('jscodeshift');
+const types = require('ast-types');
 
-function replaceServerInject(p) {
-  // get name:
-  const param = p.value.arguments[1].params[0].name;
-  const call = codeshift.callExpression(codeshift.identifier('inject'), [p.value.arguments[0]]);
-  const awaitExpr = codeshift.awaitExpression(call);
-  const response = codeshift.variableDeclaration(
-    'const',
-    [codeshift.variableDeclarator(codeshift.identifier(param), awaitExpr)]
-  );
-  // get the body of the inject callback and put it back after the await expr:
-  const callback = p.value.arguments[1];
-  const oldBody = callback.body;
-  p.parentPath.replace(response);
-  oldBody.body.reverse();
-  oldBody.body.forEach(expr => {
-    p.parentPath.insertAfter(expr);
-  });
-}
-
-// remove a parent return statement
-// useful when nuking function calls in 'return func();' form
-function removeReturnParent(func) {
-  // if the parent is a return statement nuke it too:
-  if (func.parentPath.value.type === 'ReturnStatement') {
-    func.prune();
-  }
-}
-
-// return a callback function transformed into await notation:
-// eg func1(done) { myFunc(1234, done); } ----> await myFunc(1234);
-function replaceCallbackWithAwait(pathway) {
-  const newArgs = [];
-  const func = pathway.value ? pathway.value : pathway;
-  func.arguments.forEach((arg, index) => {
-    if (index < func.arguments.length - 1) {
-      newArgs.push(arg);
-    }
-  });
-  const methodName = func.callee.type === 'MemberExpression' ? func.callee.property.name : func.callee.name;
-  const call = codeshift.callExpression(codeshift.identifier(methodName), newArgs);
-  if (func.callee) {
-    call.callee = func.callee;
-  }
-  return codeshift.awaitExpression(call);
-}
-
-// assign a variable to a callback function with await notation
-// eg func1(done) { myFunc(1234, done); } ----> const func1 = await myFunc(1234);
-function replaceCallbackWithAssignment(pathway, varType, varName) {
-  const awaitExpr = replaceCallbackWithAwait(pathway);
-  const varAssign = codeshift.variableDeclaration(
-    varType,
-    [codeshift.variableDeclarator(codeshift.identifier(varName), awaitExpr)]
-  );
-  return varAssign;
-}
+const { getFunctionNameFromFunctionExpression } = require('../helpers/getHelpers');
 
 // replace a code.expect statement:
-function replaceCodeExpect(pathway) {
+module.exports = function replaceCodeExpect(pathway) {
   const seen = {};
   let source;
   types.visit(pathway.parentPath.parentPath.parentPath, {
@@ -124,13 +66,4 @@ function replaceCodeExpect(pathway) {
     return { parent: pathway.parentPath.parentPath.parentPath.parentPath, result: call };
   }
   return {};
-}
-
-// export everything:
-module.exports = {
-  replaceCallbackWithAwait,
-  replaceCallbackWithAssignment,
-  removeReturnParent,
-  replaceCodeExpect,
-  replaceServerInject
 };

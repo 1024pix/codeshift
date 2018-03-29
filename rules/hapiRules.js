@@ -11,13 +11,10 @@ const {
   selectCallExpression,
 } = require('../helpers/selectionHelpers.js');
 
-// helpers:
-const {
-  replaceCallbackWithAwait,
-  replaceCallbackWithAssignment,
-  replaceServerInject,
-  removeReturnParent
-} = require('../helpers/replaceHelpers.js');
+const replaceServerInject = require('../helpers/replaceServerInject');
+const replaceCallbackWithAwait = require('../helpers/replaceCallbackWithAwait');
+const replaceCallbackWithAssignment = require('../helpers/replaceCallbackWithAssignment');
+const removeReturnParent = require('../helpers/removeReturnParent');
 
 module.exports = {
   replaceServerStop: (ast) => {
