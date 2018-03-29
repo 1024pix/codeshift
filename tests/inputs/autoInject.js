@@ -2,25 +2,33 @@ async.autoInject({
   server(done) {
     setup({}, done);
   },
-  db1(server, done) {
+  simpleAwaitExpression(server, done) {
     server.db.entity.insert({
       name: 'david',
       users: ['1234', '5678']
     }, done);
   },
-  db2(db1, server, done) {
+  complexAwaitExpression(simpleAwaitExpression, server, done) {
     if (itIsTrue) {
       server.db.entity.insert({
-        name: 'david',
+        name: 'gloria',
+        users: ['1234', '5678']
+      }, done);
+    } else {
+      server.db.entity.insert({
+        name: 'rico',
         users: ['1234', '5678']
       }, done);
     }
   },
-  name(db1, done) {
-    return done(null, db1.name);
+  noResult(done) {
+    done();
   },
-  error(name, done) {
-    if (name === 'david') {
+  result(simpleAwaitExpression, done) {
+    return done(null, simpleAwaitExpression.name);
+  },
+  error(result, done) {
+    if (result === 'david') {
       return done(new Error('something bad'));
     }
     return done();
@@ -29,6 +37,7 @@ async.autoInject({
   if (err) {
     return allDone(err);
   }
+  doSomething(results);
   server = results.server;
   const name = results.name;
 });

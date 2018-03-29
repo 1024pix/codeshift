@@ -1,4 +1,3 @@
-const path = require('path');
 const { getAstFromFilePath } = require('./helpers/utilities.js');
 
 // Tree Replacement Rules
@@ -23,7 +22,7 @@ const convertHapiFile = (ast) => {
   });
 };
 
-const ast = getAstFromFilePath(path.join(__dirname, process.argv[2]));
+const ast = getAstFromFilePath(process.argv[2]);
 convertHapiFile(ast);
 convertLabFile(ast);
 

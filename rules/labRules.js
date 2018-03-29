@@ -5,7 +5,23 @@ const {
   selectCallExpression
 } = require('../helpers/selectionHelpers.js');
 
+const { replaceCodeExpect } = require('../helpers/replaceHelpers');
+
 module.exports = {
+  // scans for all 'code.expect(...)' calls:'
+  replaceCodeExpect: (ast) => {
+    ast.find(codeshift.CallExpression)
+      .filter(pathway => {
+        if (pathway.value.callee && pathway.value.callee.object && pathway.value.callee.object.name === 'code') {
+          return true;
+        }
+        return false;
+      })
+      .forEach(p => {
+        const { result, parent } = replaceCodeExpect(p);
+        parent.replace(result);
+      });
+  },
   replaceAfterEach: (ast) => {
     // lab.afterEach -> tap.afterEach
     ast.find(codeshift.MemberExpression)
@@ -74,8 +90,7 @@ module.exports = {
         const tEnd = codeshift.callExpression(
           codeshift.identifier('end'), []
         );
-        tEnd.callee = codeshift.memberExpression();
-        tEnd.callee.property = codeshift.identifier('end');
+        tEnd.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('end')); 
         const existingArrow = p.value.arguments[1];
         existingArrow.async = true;
         existingArrow.params[0] = codeshift.identifier('t');

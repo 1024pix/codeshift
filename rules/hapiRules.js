@@ -14,7 +14,8 @@ const {
 // helpers:
 const {
   replaceCallbackWithAwait,
-  replaceCallbackWithAssignment
+  replaceCallbackWithAssignment,
+  removeReturnParent
 } = require('../helpers/replaceHelpers.js');
 
 module.exports = {
@@ -44,19 +45,53 @@ module.exports = {
           // get the callback name:
           const callbackName = getLastArgumentFromFunction(prop).name;
           prop.value.body.body.forEach(expressionStatement => {
-            // for any function expression that has the callback name as the last parameter, make it
-            // a variableDeclaration, eg func1(done) { myFunc(1234, done); } ----> const func1 = await myFunc(1234);
             types.visit(expressionStatement, {
               visitCallExpression(func) {
+                // for any call to the callbackName, replace it with an awaitExpr
+                // eg func1(done) { done(null, 'a value'); } --------> const func1 = 'a value';
+                if (getFunctionNameFromFunctionExpression(func.value) === callbackName) {
+                  // if not called with args just nuke it:
+                  if (func.value.arguments.length === 0) {
+                    removeReturnParent(func);
+                    func.replace();
+                    return false;
+                  }
+                  // if called with 1 arg that's an error:
+                  if (func.value.arguments.length === 1) {
+                    // replace the function with a throw:
+                    const replacement = codeshift.throwStatement(func.value.arguments[0]);
+                    if (func.parentPath.value.type === 'ReturnStatement') {
+                      func.parentPath.replace(replacement);
+                    } else {
+                      func.replace(replacement);
+                    }
+                    return false;
+                  }
+                  // if called with 2 args the 2nd arg is probably the assignment value:
+                  // todo: maybe try to verify the 1st arg is a null value
+                  if (func.value.arguments.length === 2) {
+                    //   return done(null, simpleAwaitExpression.name);
+                    const replacement = replaceCallbackWithAssignment(func, 'const', functionName);
+                    if (func.parentPath.value.type === 'ReturnStatement') {
+                      console.log(replacement);
+                      func.parentPath.replace(replacement);
+                    } else {
+                      func.replace(replacement);
+                    }
+                    return false;
+                  }
+                }
+                // for any function expression that has the callback name as the last parameter, make it
+                // a variableDeclaration, eg func1(done) { myFunc(1234, done); } ----> const func1 = await myFunc(1234);
                 const expressionCallback = getLastArgumentFromFunction(func);
                 if (expressionCallback.name && expressionCallback.name === callbackName) {
-                  // replace the function parent with the assignment:
+                  // replace the function with the assignment:
                   func.replace(replaceCallbackWithAssignment(func, 'const', functionName));
                 }
                 return this.traverse(func);
               }
             });
-            // if it's the 'done' callback don't include it:
+
             // console.log(expressionStatement);
             // todo: convert explicit calls to done(err) to 'throw err';
             // todo: convert explicit calls to done(err, value) to 'const func1 = value;'
