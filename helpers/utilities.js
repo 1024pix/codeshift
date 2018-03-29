@@ -10,6 +10,10 @@ function getAstFromFilePath(filepath) {
   return codeshift(data);
 }
 
+function writeToFile(filepath, text) {
+  fs.writeFileSync(filepath, text);
+}
+
 // used by testing:
 const getTest = (fileName) => {
   const ast = getAstFromFilePath(path.join('tests', 'inputs', fileName));
