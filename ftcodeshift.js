@@ -1,4 +1,4 @@
-const { getAstFromFilePath, writeToFile } = require('./helpers/utilities.js');
+const { getAstFromFilePath, writeToFile } = require('./lib/utilities.js');
 
 // Tree Replacement Rules
 // first part of each rule contains a find/filter directive to get the correct subtree
