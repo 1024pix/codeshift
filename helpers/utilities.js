@@ -21,4 +21,4 @@ const getTest = (fileName) => {
   return { ast, expected };
 };
 
-module.exports = { getAstFromFilePath, getTest };
+module.exports = { getAstFromFilePath, getTest, writeToFile };
