@@ -72,7 +72,7 @@ module.exports = {
           p.value.property
         );
       });
-    // (done) => async ()
+    // (done) => (t) =>
     ast.find(codeshift.CallExpression)
       .filter(pathway => isCallExpression(pathway, 'tap', 'afterEach'))
       .replaceWith(p => {
@@ -86,7 +86,7 @@ module.exports = {
           )
         );
         const func = codeshift.arrowFunctionExpression([], codeshift.blockStatement([promise]));
-        func.async = true;
+        // func.async = true;
         const call = codeshift.callExpression(
           codeshift.identifier('afterEach'),
           [func]
@@ -119,7 +119,7 @@ module.exports = {
           )
         );
         const func = codeshift.arrowFunctionExpression([], codeshift.blockStatement([promise]));
-        func.async = true;
+        // func.async = true;
         const call = codeshift.callExpression(
           codeshift.identifier('beforeEach'),
           [func]
@@ -165,7 +165,6 @@ module.exports = {
           }
         });
         const existingArrow = p.value.arguments[1];
-        existingArrow.async = true;
         existingArrow.params[0] = codeshift.identifier('t');
         p.value.callee.object.name = 'tap';
       });
