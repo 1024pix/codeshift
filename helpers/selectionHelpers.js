@@ -1,8 +1,25 @@
 // contains helpers to assist with selecting nodes of interest from a Collection of nodes
+
+const { getFunctionNameFromFunctionExpression } = require('../helpers/getHelpers');
 const { getLastArgumentFromFunction } = require('./getHelpers');
+const types = require('ast-types');
+
+// get a list of all function calls with the specified name or member expression beneath root:
+function selectFunctionCalls(root, functionName) {
+  const calls = [];
+  types.visit(root, {
+    visitCallExpression(func) {
+      if (functionName === getFunctionNameFromFunctionExpression(func.value)) {
+        calls.push(func);
+      }
+      return this.traverse(func);
+    }
+  });
+  return calls;
+}
 
 // try to find functions that need to be promisified:
-function selectFunctionsWithCallbacks(pathway, ast) {
+function isFunctionWithCallback(pathway, ast) {
   // if it's already an async call, let's leave it be:
   if (pathway.value.async) {
     return false;
@@ -17,11 +34,10 @@ function selectFunctionsWithCallbacks(pathway, ast) {
   if (callback.type === 'CallExpression') {
     return true;
   }
-  // if it's an identifier we will look in the AST to see if it's a function:
 }
 
-// find a CallExpression of the form 'objectName.propertyName()"
-function selectCallExpression(pathway, objectName, propertyName) {
+// return true if this is a CallExpression of the form 'objectName.propertyName()"
+function isCallExpression(pathway, objectName, propertyName) {
   const callee = pathway.value.callee;
   if (!propertyName) {
     return callee.object && callee.object.name === objectName;
@@ -33,14 +49,15 @@ function selectCallExpression(pathway, objectName, propertyName) {
 }
 
 // find a MemberExpression of the form 'objectName.propertyName'
-function selectMemberExpression(pathway, objectName, propertyName) {
+function isMemberExpression(pathway, objectName, propertyName) {
   const expression = pathway.value;
   return (expression.object && expression.object.name === objectName && expression.property.name === propertyName);
 }
 
 // export everything:
 module.exports = {
-  selectCallExpression,
-  selectMemberExpression,
-  selectFunctionsWithCallbacks
+  isCallExpression,
+  isFunctionWithCallback,
+  isMemberExpression,
+  selectFunctionCalls
 };

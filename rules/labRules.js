@@ -1,16 +1,24 @@
 const codeshift = require('jscodeshift');
-const types = require('ast-types');
 
 const {
-  selectMemberExpression,
-  selectCallExpression
+  isMemberExpression,
+  isCallExpression,
+  selectFunctionCalls
 } = require('../helpers/selectionHelpers.js');
 
 const replaceCodeExpect = require('../helpers/replaceCodeExpect');
-const removeReturnParent = require('../helpers/removeReturnParent');
 
-const { getFunctionNameFromFunctionExpression } = require('../helpers/getHelpers');
+const { getLastArgumentFromFunction } = require('../helpers/getHelpers');
 
+// 2: get general callbacks covered
+// 3: tap conversion is fine without hapi17 (beforeEach and afterEach will need to use a callback form)
+
+// beforeEach/afterEach need to return a Promise in hapi < 17:
+const wrapWithPromise = (callExpression) => {
+
+};
+
+// todo: add new Promise for before/afterEach with non-hapi17 tests
 module.exports = {
   replaceStrict: (ast) => {
     ast.find(codeshift.Literal)
@@ -65,7 +73,7 @@ module.exports = {
   replaceAfterEach: (ast) => {
     // lab.afterEach -> tap.afterEach
     ast.find(codeshift.MemberExpression)
-      .filter(pathway => selectMemberExpression(pathway, 'lab', 'afterEach'))
+      .filter(pathway => isMemberExpression(pathway, 'lab', 'afterEach'))
       .replaceWith(p => {
         return codeshift.memberExpression(
           codeshift.identifier('tap'),
@@ -74,10 +82,18 @@ module.exports = {
       });
     // (done) => async ()
     ast.find(codeshift.CallExpression)
-      .filter(pathway => selectCallExpression(pathway, 'tap', 'afterEach'))
+      .filter(pathway => isCallExpression(pathway, 'tap', 'afterEach'))
       .replaceWith(p => {
-        const arg = p.value.arguments[0];
-        const func = codeshift.arrowFunctionExpression([], arg.body);
+        const callbackName = p.value.arguments[0].params[0].name;
+        const arg = p.value.arguments[0].type === 'ObjectExpression' ? p.value.arguments[1] : p.value.arguments[0];
+        // 'return new Promise(callbackName => { ..... callbackName() });'
+        const promise = codeshift.returnStatement(
+          codeshift.newExpression(
+            codeshift.identifier('Promise'),
+            [codeshift.arrowFunctionExpression([codeshift.identifier(callbackName)], arg.body)]
+          )
+        );
+        const func = codeshift.arrowFunctionExpression([], codeshift.blockStatement([promise]));
         func.async = true;
         const call = codeshift.callExpression(
           codeshift.identifier('afterEach'),
@@ -90,7 +106,7 @@ module.exports = {
   replaceBeforeEach: (ast) => {
     // lab.afterEach -> tap.afterEach
     ast.find(codeshift.MemberExpression)
-      .filter(pathway => selectMemberExpression(pathway, 'lab', 'beforeEach'))
+      .filter(pathway => isMemberExpression(pathway, 'lab', 'beforeEach'))
       .replaceWith(p => {
         return codeshift.memberExpression(
           codeshift.identifier('tap'),
@@ -99,10 +115,18 @@ module.exports = {
       });
     // (done) => async ()
     ast.find(codeshift.CallExpression)
-    .filter(pathway => selectCallExpression(pathway, 'tap', 'beforeEach'))
+    .filter(pathway => isCallExpression(pathway, 'tap', 'beforeEach'))
       .replaceWith(p => {
+        const callbackName = p.value.arguments[0].type === 'ObjectExpression' ? p.value.arguments[1].params[0].name : p.value.arguments[0].params[0].name;
         const arg = p.value.arguments[0].type === 'ObjectExpression' ? p.value.arguments[1] : p.value.arguments[0];
-        const func = codeshift.arrowFunctionExpression([], arg.body);
+        // 'return new Promise(callbackName => { ..... callbackName() });'
+        const promise = codeshift.returnStatement(
+          codeshift.newExpression(
+            codeshift.identifier('Promise'),
+            [codeshift.arrowFunctionExpression([codeshift.identifier(callbackName)], arg.body)]
+          )
+        );
+        const func = codeshift.arrowFunctionExpression([], codeshift.blockStatement([promise]));
         func.async = true;
         const call = codeshift.callExpression(
           codeshift.identifier('beforeEach'),
@@ -114,39 +138,34 @@ module.exports = {
   },
   replaceServerSetup: (ast) => {
     ast.find(codeshift.CallExpression)
-    .filter(pathway => selectCallExpression(pathway, 'setup'))
+    .filter(pathway => isCallExpression(pathway, 'setup'))
       .replaceWith(p => {
         const call = codeshift.callExpression(codeshift.identifier('setup'), [p.value.arguments[0]]);
         const awaitExpr = codeshift.awaitExpression(call);
         return codeshift.assignmentExpression('=', codeshift.identifier('server'), awaitExpr);
       });
   },
+  // todo replace callback with calls to t.end();
   replaceTest: (ast) => {
     // replace lab.test + callback with tap.test + async handler
     ast.find(codeshift.CallExpression)
-      .filter(pathway => selectCallExpression(pathway, 'lab', 'test'))
+      .filter(pathway => isCallExpression(pathway, 'lab', 'test'))
       .forEach(p => {
-        // get the name of this test's callback and replace any occurences of it:
+        // get the name of this test's callback and replace any occurences of it with a t.end():
         const callbackName = p.value.arguments[1].params[0].name;
-        types.visit(p, {
-          visitCallExpression(func) {
-            if (callbackName === getFunctionNameFromFunctionExpression(func.value)) {
-              // remove the 'return' if it exists:
-              removeReturnParent(func);
-              func.replace();
-            }
-            // for any call to the callbackName, replace it with an awaitExpr
-            return this.traverse(func);
+        const callbacks = selectFunctionCalls(p, callbackName);
+        callbacks.reverse();
+        callbacks.forEach(func => {
+          // if the callback was an error, let's do t.fail:
+          if (func.value.arguments.length > 0) {
+            func.replace(codeshift.callExpression(codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('fail')), []));
+          } else {
+            func.replace(codeshift.callExpression(codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('end')), []));
           }
         });
-        const tEnd = codeshift.callExpression(
-          codeshift.identifier('end'), []
-        );
-        tEnd.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('end'));
         const existingArrow = p.value.arguments[1];
         existingArrow.async = true;
         existingArrow.params[0] = codeshift.identifier('t');
-        existingArrow.body.body.push(codeshift.expressionStatement(tEnd));
         p.value.callee.object.name = 'tap';
       });
   }

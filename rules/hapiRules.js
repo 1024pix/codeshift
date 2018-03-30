@@ -8,7 +8,7 @@ const {
 } = require('../helpers/getHelpers.js');
 
 const {
-  selectCallExpression,
+  isCallExpression,
 } = require('../helpers/selectionHelpers.js');
 
 const replaceServerInject = require('../helpers/replaceServerInject');
@@ -20,14 +20,14 @@ module.exports = {
   replaceServerStop: (ast) => {
     ast.find(codeshift.CallExpression)
       // get all 'server.stop()' expressions
-      .filter(pathway => selectCallExpression(pathway, 'server', 'stop'))
+      .filter(pathway => isCallExpression(pathway, 'server', 'stop'))
       // replace them with await server.stop()
       .replaceWith(p => replaceCallbackWithAwait(p, 'stop'));
   },
   replaceAsyncAutoInject: (ast) => {
     // replace the main body and callback of the autoInject:
     ast.find(codeshift.CallExpression)
-      .filter(pathway => selectCallExpression(pathway, 'async', 'autoInject'))
+      .filter(pathway => isCallExpression(pathway, 'async', 'autoInject'))
       .forEach(p => {
         // eg async.autoInject(mainObject, mainCallback);
         const mainObject = p.get('arguments').get(0);
