@@ -32,7 +32,7 @@ module.exports = {
         return false;
       })
       .forEach(p => {
-        if (p.value.declarations[0].id.name === 'code') {
+        if (p.value.declarations[0].id.name === 'lab') {
           const varAssign = codeshift.variableDeclaration(
             'const',
             [
@@ -144,7 +144,12 @@ module.exports = {
       .filter(pathway => isCallExpression(pathway, 'lab', 'test'))
       .forEach(p => {
         // get the name of this test's callback and replace any occurences of it with a t.end() or t.end:
-        const callbackName = p.value.arguments[1].params[0].name;
+        // lab.test callback could be 2nd or 3rd param, if it's the third we need to remove the 2nd
+        if (p.value.arguments[1].type === 'ObjectExpression') {
+          p.value.arguments[1] = p.value.arguments.pop();
+        }
+        const existingArrow = p.value.arguments[1];
+        const callbackName = existingArrow.params[0].name;
         // if there's a function that passes the callback as a parameter replace it with 't.end':
         const functionCalls = selectFunctionCalls(p);
         functionCalls.forEach(func => {
@@ -164,8 +169,7 @@ module.exports = {
             func.replace(codeshift.callExpression(codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('end')), []));
           }
         });
-        const existingArrow = p.value.arguments[1];
-        existingArrow.params[0] = codeshift.identifier('t');
+        existingArrow.params = [codeshift.identifier('t')];
         p.value.callee.object.name = 'tap';
       });
   }

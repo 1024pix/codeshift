@@ -28,6 +28,13 @@ module.exports = function replaceCodeExpect(pathway) {
     call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('equal'));
     return { parent: pathway.parentPath.parentPath.parentPath, result: call };
   }
+  // if it's a to.startsWith:
+  if (seen.startWith && !seen.not) {
+    const dest = pathway.parentPath.parentPath.parentPath.value.arguments[0];
+    const call = codeshift.callExpression(codeshift.identifier('t'), [source, dest]);
+    call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('match'));
+    return { parent: pathway.parentPath.parentPath.parentPath, result: call };
+  }
   // if it's a to.not.equal:
   if (seen.equal && seen.not) {
     const dest = pathway.parentPath.parentPath.parentPath.parentPath.value.arguments[0];

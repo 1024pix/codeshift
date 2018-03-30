@@ -32,6 +32,13 @@ const argv = require('yargs')
     default: 'all'
   },
 })
+.options({
+  project: {
+    alias: 'p',
+    describe: 'when set to a path, will attempt to transform all files in the indicated directory',
+    default: false
+  },
+})
 
 // future features:
 /*
@@ -39,13 +46,6 @@ const argv = require('yargs')
   test: {
     alias: 't',
     describe: 'a command that will be executed on the output file after conversion, eg --test=tap',
-    default: false
-  },
-})
-.options({
-  project: {
-    alias: 'p',
-    describe: 'when set will attempt to transform all files in the indicated directory',
     default: false
   },
 })
@@ -60,21 +60,39 @@ const argv = require('yargs')
 .help()
 .argv;
 
-// parse and apply transformation rules:
-const ast = getAstFromFilePath(argv.input);
-if (argv.ruleset === 'hapi17' || argv.ruleset === 'all') {
-  convertFile(ast, hapiRules)
-}
-if (argv.ruleset === 'labToTap' || argv.ruleset === 'all') {
-  convertFile(ast, labRules);
-}
+const applyRulesToFile = (input, ruleset, output) => {
+  // parse and apply transformation rules:
+  const ast = getAstFromFilePath(input);
+  if (ruleset === 'hapi17' || ruleset === 'all') {
+    convertFile(ast, hapiRules)
+  }
+  if (ruleset === 'labToTap' || ruleset === 'all') {
+    convertFile(ast, labRules);
+  }
+  // convert back to text:
+  const result = ast.toSource({ quote: 'single' });
+  // print or write it out to file!
+  if (!output) {
+    console.log(result);
+  } else {
+    writeToFile(output, result);
+  }
+};
 
-// convert back to text:
-const result = ast.toSource({ quote: 'single' });
-
-// print or write it out to file!
-if (!argv.output) {
-  console.log(result);
+const path = require('path');
+if (argv.project) {
+  // get all files in the parent directory
+  const files = require('fs').readdirSync(argv.project);
+  files.forEach(file => {
+    const inputPath = path.join(argv.project, file);
+    const outputPath = path.join(argv.project, `migrated.${file}`);
+    try {
+      applyRulesToFile(inputPath, argv.ruleset, outputPath);
+    } catch (e) {
+      console.log(`couldn't process ${inputPath}`);
+    }
+  });
+  // apply rules to each one and write out with appelation
 } else {
-  writeToFile(argv.output, result);
+  applyRulesToFile(argv.input, argv.ruleset, argv.output);
 }
