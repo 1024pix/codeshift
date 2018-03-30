@@ -21,6 +21,7 @@ module.exports = function replaceCodeExpect(pathway) {
       return this.traverse(id);
     }
   });
+
   // if it's a to.equal:
   if (seen.equal && !seen.not) {
     const dest = pathway.parentPath.parentPath.parentPath.value.arguments[0];
@@ -28,13 +29,66 @@ module.exports = function replaceCodeExpect(pathway) {
     call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('equal'));
     return { parent: pathway.parentPath.parentPath.parentPath, result: call };
   }
-  // if it's a to.startsWith:
+
+  // if it's a to.startWith:
   if (seen.startWith && !seen.not) {
     const dest = pathway.parentPath.parentPath.parentPath.value.arguments[0];
     const call = codeshift.callExpression(codeshift.identifier('t'), [source, dest]);
     call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('match'));
     return { parent: pathway.parentPath.parentPath.parentPath, result: call };
   }
+  // if it's a to.endWith:
+  if (seen.endWith && !seen.not) {
+    const dest = pathway.parentPath.parentPath.parentPath.value.arguments[0];
+    const call = codeshift.callExpression(codeshift.identifier('t'), [source, dest]);
+    call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('match'));
+    return { parent: pathway.parentPath.parentPath.parentPath, result: call };
+  }
+  // if it's a to.include:
+  if (seen.include && !seen.not) {
+    const dest = pathway.parentPath.parentPath.parentPath.value.arguments[0];
+    const call = codeshift.callExpression(codeshift.identifier('t'), [source, dest]);
+    call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('match'));
+    return { parent: pathway.parentPath.parentPath.parentPath, result: call };
+  }
+  // if it's a to.not.include:
+  if (seen.include && seen.not) {
+    const dest = pathway.parentPath.parentPath.parentPath.value.arguments[0];
+    const call = codeshift.callExpression(codeshift.identifier('t'), [source, dest]);
+    call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('notMatch'));
+    return { parent: pathway.parentPath.parentPath.parentPath, result: call };
+  }
+  // if it's a to.contain
+  if (seen.contain && !seen.not) {
+    const dest = pathway.parentPath.parentPath.parentPath.value.arguments[0];
+    const call = codeshift.callExpression(codeshift.identifier('t'), [source, dest]);
+    call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('ok'));
+    const includes = codeshift.callExpression(codeshift.identifier('includes'), [dest]);
+    includes.callee = codeshift.memberExpression(source, codeshift.identifier('includes'));
+    call.arguments = [includes];
+    return { parent: pathway.parentPath.parentPath.parentPath, result: call };
+  }
+  // if it's a to.not.contain:
+  if (seen.contain && seen.not) {
+    const dest = pathway.parentPath.parentPath.parentPath.parentPath.value.arguments[0];
+    const call = codeshift.callExpression(codeshift.identifier('t'), [source, dest]);
+    call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('notOk'));
+    const includes = codeshift.callExpression(codeshift.identifier('includes'), [dest]);
+    includes.callee = codeshift.memberExpression(source, codeshift.identifier('includes'));
+    call.arguments = [includes];
+    return { parent: pathway.parentPath.parentPath.parentPath.parentPath, result: call };
+  }
+
+
+  // if it's a to.include:
+  if (seen.endWith && !seen.not) {
+    const dest = pathway.parentPath.parentPath.parentPath.value.arguments[0];
+    const call = codeshift.callExpression(codeshift.identifier('t'), [source, dest]);
+    call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('match'));
+    return { parent: pathway.parentPath.parentPath.parentPath, result: call };
+  }
+
+
   // if it's a to.not.equal:
   if (seen.equal && seen.not) {
     const dest = pathway.parentPath.parentPath.parentPath.parentPath.value.arguments[0];
@@ -64,7 +118,7 @@ module.exports = function replaceCodeExpect(pathway) {
   if (seen.to && seen.exist && !seen.not) {
     const call = codeshift.callExpression(codeshift.identifier('t'), [source, codeshift.identifier('undefined')]);
     call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('notEqual'));
-    return { parent: pathway.parentPath.parentPath.parentPath, result: call };
+    return { parent: pathway.parentPath.parentPath, result: call };
   }
   // if it's a to.not.exist:
   if (seen.to && seen.exist && seen.not) {

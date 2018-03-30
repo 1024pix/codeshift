@@ -12,6 +12,16 @@ const { getLastArgumentFromFunction } = require('../helpers/getHelpers');
 
 // todo: add new Promise for before/afterEach with non-hapi17 tests
 module.exports = {
+  // for now we are just going to turn lab.experiment into a tap sub-test
+  // but in future we may need to handle lab.experiment differently:
+  replaceLabExperiment: (ast) => {
+    ast.find(codeshift.CallExpression)
+      .filter(pathway => isCallExpression(pathway, 'lab', 'experiment'))
+      .forEach(p => {
+        p.value.callee.object = codeshift.identifier('tap');
+        p.value.callee.property = codeshift.identifier('test');
+      });
+  },
   replaceStrict: (ast) => {
     ast.find(codeshift.Literal)
     .filter(pathway => pathway.value.value === 'use strict')
@@ -143,6 +153,13 @@ module.exports = {
     ast.find(codeshift.CallExpression)
       .filter(pathway => isCallExpression(pathway, 'lab', 'test'))
       .forEach(p => {
+        // some tests are just stubbed like this: 'lab.test('no test here!')'
+        // let's preserve those with t.skip:
+        if (p.value.arguments.length === 1) {
+          p.value.callee.object = codeshift.identifier('tap');
+          p.value.callee.property = codeshift.identifier('skip');
+          return;
+        }
         // get the name of this test's callback and replace any occurences of it with a t.end() or t.end:
         // lab.test callback could be 2nd or 3rd param, if it's the third we need to remove the 2nd
         if (p.value.arguments[1].type === 'ObjectExpression') {
