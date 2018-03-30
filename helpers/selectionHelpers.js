@@ -5,11 +5,14 @@ const { getLastArgumentFromFunction } = require('./getHelpers');
 const types = require('ast-types');
 
 // get a list of all function calls with the specified name or member expression beneath root:
+// if no name specified get all function calls beneath the root:
 function selectFunctionCalls(root, functionName) {
   const calls = [];
   types.visit(root, {
     visitCallExpression(func) {
-      if (functionName === getFunctionNameFromFunctionExpression(func.value)) {
+      if (!functionName) {
+        calls.push(func);
+      } else if (functionName === getFunctionNameFromFunctionExpression(func.value)) {
         calls.push(func);
       }
       return this.traverse(func);

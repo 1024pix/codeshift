@@ -10,14 +10,6 @@ const replaceCodeExpect = require('../helpers/replaceCodeExpect');
 
 const { getLastArgumentFromFunction } = require('../helpers/getHelpers');
 
-// 2: get general callbacks covered
-// 3: tap conversion is fine without hapi17 (beforeEach and afterEach will need to use a callback form)
-
-// beforeEach/afterEach need to return a Promise in hapi < 17:
-const wrapWithPromise = (callExpression) => {
-
-};
-
 // todo: add new Promise for before/afterEach with non-hapi17 tests
 module.exports = {
   replaceStrict: (ast) => {
@@ -151,8 +143,17 @@ module.exports = {
     ast.find(codeshift.CallExpression)
       .filter(pathway => isCallExpression(pathway, 'lab', 'test'))
       .forEach(p => {
-        // get the name of this test's callback and replace any occurences of it with a t.end():
+        // get the name of this test's callback and replace any occurences of it with a t.end() or t.end:
         const callbackName = p.value.arguments[1].params[0].name;
+        // if there's a function that passes the callback as a parameter replace it with 't.end':
+        const functionCalls = selectFunctionCalls(p);
+        functionCalls.forEach(func => {
+          const lastArg = func.get('arguments').get(func.value.arguments.length - 1);
+          if (lastArg.value && lastArg.value.type === 'Identifier' && lastArg.value.name === callbackName) {
+            lastArg.replace(codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('end')));
+          }
+        });
+        // if there's a call to the callback replace it with 't.end()':
         const callbacks = selectFunctionCalls(p, callbackName);
         callbacks.reverse();
         callbacks.forEach(func => {
