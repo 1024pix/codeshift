@@ -18,8 +18,13 @@ module.exports = {
     ast.find(codeshift.CallExpression)
       .filter(pathway => isCallExpression(pathway, 'lab', 'experiment'))
       .forEach(p => {
-        p.value.callee.object = codeshift.identifier('tap');
-        p.value.callee.property = codeshift.identifier('test');
+        // lab.exerpiment('description', () => {....body })
+        // remove the experiment and pull the body out:
+        const body = p.value.arguments[1].body;
+        body.body.forEach(expressionStatement => {
+          p.parentPath.parentPath.insertAfter(expressionStatement);
+        });
+        p.parentPath.replace();
       });
   },
   replaceStrict: (ast) => {

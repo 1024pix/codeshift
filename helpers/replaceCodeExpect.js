@@ -118,7 +118,7 @@ module.exports = function replaceCodeExpect(pathway) {
   if (seen.to && seen.exist && !seen.not) {
     const call = codeshift.callExpression(codeshift.identifier('t'), [source, codeshift.identifier('undefined')]);
     call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('notEqual'));
-    return { parent: pathway.parentPath.parentPath, result: call };
+    return { parent: pathway.parentPath.parentPath.parentPath, result: call };
   }
   // if it's a to.not.exist:
   if (seen.to && seen.exist && seen.not) {
