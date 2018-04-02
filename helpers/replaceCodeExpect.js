@@ -1,10 +1,10 @@
 const codeshift = require('jscodeshift');
 const types = require('ast-types');
 
-const { getFunctionNameFromFunctionExpression } = require('../helpers/getHelpers');
+const { getFunctionNameFromFunctionExpression, getVariableDeclaration } = require('../helpers/getHelpers');
 
 // replace a code.expect statement:
-module.exports = function replaceCodeExpect(pathway) {
+module.exports = function replaceCodeExpect(ast, pathway) {
   const seen = {};
   let source;
   types.visit(pathway.parentPath.parentPath.parentPath, {
@@ -25,8 +25,11 @@ module.exports = function replaceCodeExpect(pathway) {
   // if it's a to.equal:
   if (seen.equal && !seen.not) {
     const dest = pathway.parentPath.parentPath.parentPath.value.arguments[0];
-    const call = codeshift.callExpression(codeshift.identifier('t'), [source, dest]);
-    call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('equal'));
+    const call = codeshift.callExpression(codeshift.identifier('equal'), [
+      codeshift.identifier('t'),
+      source,
+      dest
+    ]);
     return { parent: pathway.parentPath.parentPath.parentPath, result: call };
   }
 
@@ -92,8 +95,11 @@ module.exports = function replaceCodeExpect(pathway) {
   // if it's a to.not.equal:
   if (seen.equal && seen.not) {
     const dest = pathway.parentPath.parentPath.parentPath.parentPath.value.arguments[0];
-    const call = codeshift.callExpression(codeshift.identifier('t'), [source, dest]);
-    call.callee = codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('notEqual'));
+    const call = codeshift.callExpression(codeshift.identifier('notEqual'), [
+      codeshift.identifier('t'),
+      source,
+      dest
+    ]);
     return { parent: pathway.parentPath.parentPath.parentPath.parentPath, result: call };
   }
   // if it's a to.be.an / to.be.a:

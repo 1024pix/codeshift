@@ -9,6 +9,25 @@ const {
 const replaceCodeExpect = require('../helpers/replaceCodeExpect');
 
 const { getLastArgumentFromFunction } = require('../helpers/getHelpers');
+const parseTree = require('../helpers/parseTree');
+
+// wrapper for doing equality comparison, available in each test file:
+const equal = parseTree(`
+// return if a and b are equal:
+const equal = (t, a, b) => {
+  if (typeof a === typeof b && typeof b === 'object') {
+    return t.deepEqual(a, b);
+  }
+  return t.equal(a, b);
+};`);
+const notEqual = parseTree(`
+// return if a and b are equal:
+const notEqual = (t, a, b) => {
+  if (typeof a === typeof b && typeof b === 'object') {
+    return t.notDeepEqual(a, b);
+  }
+  return t.notEqual(a, b);
+};`);
 
 // todo: add new Promise for before/afterEach with non-hapi17 tests
 module.exports = {
@@ -18,11 +37,11 @@ module.exports = {
     ast.find(codeshift.CallExpression)
       .filter(pathway => isCallExpression(pathway, 'lab', 'experiment'))
       .forEach(p => {
-        // lab.exerpiment('description', () => {....body })
+        // lab.experiment('description', () => {....body })
         // remove the experiment and pull the body out:
         const body = p.value.arguments[1].body;
         body.body.forEach(expressionStatement => {
-          p.parentPath.parentPath.insertAfter(expressionStatement);
+          p.parentPath.insertAfter(expressionStatement);
         });
         p.parentPath.replace();
       });
@@ -58,6 +77,8 @@ module.exports = {
             )]
           );
           p.replace(varAssign);
+          p.insertAfter(equal);
+          p.insertAfter(notEqual);
         } else {
           p.replace();
         }
@@ -73,7 +94,7 @@ module.exports = {
         return false;
       })
       .forEach(p => {
-        const { result, parent } = replaceCodeExpect(p);
+        const { result, parent } = replaceCodeExpect(ast, p);
         parent.replace(result);
       });
   },
@@ -159,10 +180,11 @@ module.exports = {
       .filter(pathway => isCallExpression(pathway, 'lab', 'test'))
       .forEach(p => {
         // some tests are just stubbed like this: 'lab.test('no test here!')'
-        // let's preserve those with t.skip:
+        // let's preserve those with { skip: true }
         if (p.value.arguments.length === 1) {
           p.value.callee.object = codeshift.identifier('tap');
-          p.value.callee.property = codeshift.identifier('skip');
+          p.value.callee.property = codeshift.identifier('test');
+          p.value.arguments.push(codeshift('{ skip: true }').__paths[0].value.program.body[0]);
           return;
         }
         // get the name of this test's callback and replace any occurences of it with a t.end() or t.end:
