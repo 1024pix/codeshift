@@ -1,5 +1,5 @@
 {
-  "name": "codeshift",
+  "name": "ftcodeshift",
   "description": "Facilities for auto-migrating code",
   "private": true,
   "homepage": "https://github.com/firstandthird/codeshift",
