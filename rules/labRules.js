@@ -21,13 +21,19 @@ const equal = (t, a, b) => {
   return t.equal(a, b);
 };`);
 const notEqual = parseTree(`
-// return if a and b are equal:
+// return if a and b are not equal:
 const notEqual = (t, a, b) => {
   if (typeof a === typeof b && typeof b === 'object') {
     return t.notDeepEqual(a, b);
   }
   return t.notEqual(a, b);
 };`);
+const doneCallback = parseTree(`(err) => {
+  if (err) {
+    return t.fail();
+  }
+  t.end();
+}`);
 
 // todo: add new Promise for before/afterEach with non-hapi17 tests
 module.exports = {
@@ -194,12 +200,13 @@ module.exports = {
         }
         const existingArrow = p.value.arguments[1];
         const callbackName = existingArrow.params[0].name;
-        // if there's a function that passes the callback as a parameter replace it with 't.end':
+        // if there's a function that passes the callback as a parameter replace it with the doneCallback
+        // this callback will call t.fail / t.end depending on whether there was an error:
         const functionCalls = selectFunctionCalls(p);
         functionCalls.forEach(func => {
           const lastArg = func.get('arguments').get(func.value.arguments.length - 1);
           if (lastArg.value && lastArg.value.type === 'Identifier' && lastArg.value.name === callbackName) {
-            lastArg.replace(codeshift.memberExpression(codeshift.identifier('t'), codeshift.identifier('end')));
+            lastArg.replace(doneCallback);
           }
         });
         // if there's a call to the callback replace it with 't.end()':
