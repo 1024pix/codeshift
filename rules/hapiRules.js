@@ -7,14 +7,19 @@ const {
   getLastArgumentFromFunction,
 } = require('../helpers/getHelpers.js');
 
+const replaceReplies = require('../helpers/replaceReplies.js');
+
 const {
+  isMemberExpression,
   isCallExpression,
 } = require('../helpers/selectionHelpers.js');
+
+const parseTree = require('../helpers/parseTree.js');
 
 const replaceServerInject = require('../helpers/replaceServerInject');
 const replaceCallbackWithAwait = require('../helpers/replaceCallbackWithAwait');
 const replaceCallbackWithAssignment = require('../helpers/replaceCallbackWithAssignment');
-const removeReturnParent = require('../helpers/removeReturnParent');
+const replaceAutoInjectObject = require('../helpers/replaceAutoInjectObject.js');
 
 module.exports = {
   replaceServerStop: (ast) => {
@@ -32,85 +37,10 @@ module.exports = {
         // eg async.autoInject(mainObject, mainCallback);
         const mainObject = p.get('arguments').get(0);
         const mainCallback = p.get('arguments').get(1);
-        // use allProps to combine the code in the main object and the callback
-        // into one unified block statement:
-        const allProps = [];
-        // loop over each function call in the main object and get the function name and the callback name
-        // and then look for occurences of that callback in the function body:
-        const properties = mainObject.get('properties');
-        properties.value.forEach(prop => {
-          const functionName = getFunctionNameFromFunctionExpression(prop);
-          // get the callback name:
-          const callbackName = getLastArgumentFromFunction(prop).name;
-          prop.value.body.body.forEach(expressionStatement => {
-            types.visit(expressionStatement, {
-              visitCallExpression(func) {
-                // for any call to the callbackName, replace it with an awaitExpr
-                // eg func1(done) { done(null, 'a value'); } --------> const func1 = 'a value';
-                if (getFunctionNameFromFunctionExpression(func.value) === callbackName) {
-                  // if not called with args just nuke it:
-                  if (func.value.arguments.length === 0) {
-                    removeReturnParent(func);
-                    func.replace();
-                    return false;
-                  }
-                  // if called with 1 arg that's an error:
-                  if (func.value.arguments.length === 1) {
-                    // replace the function with a throw:
-                    const replacement = codeshift.throwStatement(func.value.arguments[0]);
-                    if (func.parentPath.value.type === 'ReturnStatement') {
-                      func.parentPath.replace(replacement);
-                    } else {
-                      func.replace(replacement);
-                    }
-                    return false;
-                  }
-                  // if called with 2 args the 2nd arg is probably the assignment value:
-                  // todo: maybe try to verify the 1st arg is a null value
-                  if (func.value.arguments.length === 2) {
-                    //   return done(null, simpleAwaitExpression.name);
-                    const replacement = replaceCallbackWithAssignment(func, 'const', functionName);
-                    if (func.parentPath.value.type === 'ReturnStatement') {
-                      func.parentPath.replace(replacement);
-                    } else {
-                      func.replace(replacement);
-                    }
-                    return false;
-                  }
-                }
-                // for any function expression that has the callback name as the last parameter, make it
-                // a variableDeclaration, eg func1(done) { myFunc(1234, done); } ----> const func1 = await myFunc(1234);
-                const expressionCallback = getLastArgumentFromFunction(func);
-                if (expressionCallback.name && expressionCallback.name === callbackName) {
-                  // replace the function with the assignment:
-                  func.replace(replaceCallbackWithAssignment(func, 'const', functionName));
-                }
-                return this.traverse(func);
-              }
-            });
-            // todo: convert explicit calls to done(err) to 'throw err';
-            // todo: convert explicit calls to done(err, value) to 'const func1 = value;'
-            // for any other type of expression statement just push it to the body:
-            allProps.push(expressionStatement);
-          });
-        });
-        // if the callback is an identifier, it should be for the callback function:
-        // eg async.autoInject({....}, allDone). In which case we can just skip it;
-        if (mainCallback.value.type !== 'Identifier') {
-          // add the content of the callback to the block:
-          mainCallback.value.body.body.forEach((item, index) => {
-            // don't add any 'if (err)' statements:
-            if (item.type === 'IfStatement' && index === 0) {
-              return;
-            }
-            allProps.push(item);
-          });
-        }
-        const newBody = codeshift.blockStatement(allProps);
+        const newBody = codeshift.blockStatement(replaceAutoInjectObject(mainObject, mainCallback));
         // three levels up is the body of the function, replace it with the new body:
         p.parentPath.parentPath.parentPath.replace(newBody);
       });
-    // replace any ('if (err) { }')
   },
   replaceServerInject: (ast) => {
     ast.find(codeshift.Program)
@@ -135,9 +65,6 @@ module.exports = {
         });
       });
   },
-  // find methods who's last argument is a function of the form '(err, something)''
-  // and awaitify them:
-  // UNDER CONSTRUCTION:
   replaceCallbacksWithAwait: (ast) => {
     ast.find(codeshift.Program)
     .forEach(p => {
@@ -173,5 +100,88 @@ module.exports = {
         func.replace(replaceCallbackWithAssignment(func, 'const', varName));
       });
     });
+  },
+  replaceRoutes: (ast) => {
+    ast.find(codeshift.Property)
+      .filter(pathway => pathway.value.key.name === 'handler' && pathway.value.value.type === 'FunctionExpression')
+      .forEach(p => {
+        p.value.value.params[1].name = 'h';
+        // replace any occurence of 'reply':
+        replaceReplies(p);
+      });
+  },
+  // replaces hapi-auto-handler routes:
+  replaceRouteAutoInject: (ast) => {
+    // replace the main body and callback of the autoInject:
+    ast.find(codeshift.Property)
+      .filter(pathway => pathway.value.key.name === 'handler' && pathway.value.value.type !== 'FunctionExpression')
+      .forEach(p => {
+        const mainObject = p.get('value').get('properties').get(0).get('value');
+        const allProps = replaceAutoInjectObject(mainObject);
+        // add variables for server, setting:
+        allProps.unshift(parseTree(`
+          const server = request.server;
+        `));
+        allProps.unshift(parseTree(`
+          const settings = request.server.settings.app;
+        `));
+        // // const handler = p.value.value;
+        p.value.value = codeshift.arrowFunctionExpression([
+          codeshift.identifier('request'),
+          codeshift.identifier('h')
+        ], codeshift.blockStatement(allProps));
+        p.value.value.async = true;
+        replaceReplies(p);
+      });
+  },
+  replacePlugin: (ast) => {
+    // replace the registration method:
+    ast.find(codeshift.AssignmentExpression)
+      .filter(pathway => pathway.value.left.property.name === 'register')
+      .replaceWith(p => {
+        // replace 'exports.register =' with 'const register ='
+        const varAssign = codeshift.variableDeclaration(
+          'const',
+          [codeshift.variableDeclarator(codeshift.identifier('register'), p.value.right)]
+        );
+        // remove 'next':
+        if (p.value.right.params && p.value.right.params.includes('next')) {
+          p.value.right.params.pop();
+        }
+        types.visit(p, {
+          visitCallExpression(func) {
+            const name = getFunctionNameFromFunctionExpression(func.value);
+            if (name === 'next') {
+              delete func.loc;
+              func.replace();
+              func.parentPath.replace();
+            }
+            return this.traverse(func);
+          }
+        });
+        p.parentPath.replace(varAssign);
+      });
+    // replace 'exports.register.attributes':
+    ast.find(codeshift.AssignmentExpression)
+      .filter(pathway => pathway.value.left.property.name === 'attributes')
+      .forEach(p => {
+        const right = p.value.right;
+        p.replace(codeshift.assignmentExpression('=',
+          codeshift.memberExpression(
+            codeshift.identifier('exports'),
+            codeshift.identifier('register'),
+          ), right
+        ));
+        const registerProp = codeshift.property('init', codeshift.identifier('register'), codeshift.identifier('register'));
+        registerProp.shorthand = true;
+        const onceProp = codeshift.property('init', codeshift.identifier('once'), codeshift.literal(true));
+        console.log(right.properties.clear);
+        right.properties.push(prop);
+        // p.value.right.properties = [
+        //   registerProp,
+        //   onceProp
+        // ];
+        // pkg: require('./package.json')
+      });
   }
 };

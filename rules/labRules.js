@@ -11,6 +11,7 @@ const replaceCodeExpect = require('../helpers/replaceCodeExpect');
 const { getLastArgumentFromFunction } = require('../helpers/getHelpers');
 const parseTree = require('../helpers/parseTree');
 
+// todo: push this into a separate include file
 // wrapper for doing equality comparison, available in each test file:
 const equal = parseTree(`
 // return if a and b are equal:
