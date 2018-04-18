@@ -40,4 +40,5 @@ function getLastArgumentFromFunction(functionExpression) {
 module.exports = {
   getFunctionNameFromFunctionExpression,
   getLastArgumentFromFunction,
+  CallbackNames: ['done', 'callback']
 };

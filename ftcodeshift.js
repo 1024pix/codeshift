@@ -68,14 +68,14 @@ const argv = require('yargs')
 const applyRulesToFile = (input, ruleset, output) => {
   // parse and apply transformation rules:
   const ast = getAstFromFilePath(input);
+  if (ruleset === 'es7' || ruleset === 'all') {
+    convertFile(ast, es7Rules);
+  }
   if (ruleset === 'hapi17' || ruleset === 'all') {
     convertFile(ast, hapiRules)
   }
   if (ruleset === 'labToTap' || ruleset === 'all') {
     convertFile(ast, labRules);
-  }
-  if (ruleset === 'es7' || ruleset === 'all') {
-    convertFile(ast, es7Rules);
   }
   if (ruleset === 'fixTap') {
     convertFile(ast, fixTapRules);

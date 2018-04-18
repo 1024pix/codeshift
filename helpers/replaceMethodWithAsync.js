@@ -1,14 +1,12 @@
 const types = require('ast-types');
 const codeshift = require('jscodeshift');
 
+
 const {
   getFunctionNameFromFunctionExpression,
   getLastArgumentFromFunction,
+  CallbackNames
 } = require('../helpers/getHelpers.js');
-
-const replaceCallbackWithReturn = () => {
-
-};
 
 const replaceCallbacksInBody = (body, callbackName) => {
   types.visit(body, {
@@ -44,10 +42,9 @@ const replaceCallbacksInBody = (body, callbackName) => {
       // a variableDeclaration, eg func1(done) { myFunc(1234, done); } ----> const func1 = await myFunc(1234);
       const expressionCallback = getLastArgumentFromFunction(func);
       if (expressionCallback.name && expressionCallback.name === callbackName) {
-        console.log('gonna return a function call');
-        console.log(func.value);
         func.value.arguments.pop();
         func.parentPath.replace(codeshift.returnStatement(func.value));
+        return false;
       }
       return this.traverse(func);
     }
@@ -56,11 +53,10 @@ const replaceCallbacksInBody = (body, callbackName) => {
 
 // replace a class's method with an async version if needed
 module.exports = function replaceCallbackWithAwait(pathway, useCallback) {
-  const newArgs = [];
   const func = pathway.value ? pathway.value : pathway;
   // see if last param is a callback:
   const lastArg = getLastArgumentFromFunction(func);
-  if (!lastArg || ['done'].includes(lastArg.name) === false) {
+  if (!lastArg || CallbackNames.includes(lastArg.name) === false) {
     return;
   }
   func.async = true;

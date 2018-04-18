@@ -6,10 +6,32 @@ const replaceCallbackWithAwait = require('../helpers/replaceCallbackWithAwait');
 
 // helpers:
 const {
+  CallbackNames,
   getLastArgumentFromFunction
 } = require('../helpers/getHelpers.js');
 
 module.exports = {
+  // make class members async:
+  replaceClassMembers: (ast) => {
+    ast.find(codeshift.ClassBody)
+    .forEach(p => {
+      // loop over all but the first function declarations:
+      p.value.body.forEach(def => {
+        replaceMethodWithAsync(def);
+      });
+    });
+  },
+  // convert any object methods that have a callback:
+  replaceMethodDefinitions: (ast) => {
+    ast.find(codeshift.FunctionExpression)
+    .filter(p => {
+      const lastArg = getLastArgumentFromFunction(p.value);
+      return lastArg.name && CallbackNames.includes(lastArg.name);
+    })
+    .forEach(p => {
+      replaceMethodWithAsync(p.value);
+    });
+  },
   replaceCallbacksWithAwait: (ast) => {
     ast.find(codeshift.Program)
     .forEach(p => {
@@ -43,15 +65,6 @@ module.exports = {
         // get the callback name that we'll use for the variable assignment:
         const varName = callback.params[1].name;
         func.replace(replaceCallbackWithAssignment(func, 'const', varName));
-      });
-    });
-  },
-  replaceClassMembers: (ast) => {
-    ast.find(codeshift.ClassBody)
-    .forEach(p => {
-      // loop over all but the first function declarations:
-      p.value.body.forEach(def => {
-        replaceMethodWithAsync(def);
       });
     });
   }
