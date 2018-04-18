@@ -3,14 +3,12 @@ const codeshift = require('jscodeshift');
 
 // helpers:
 const {
-  getFunctionNameFromFunctionExpression,
-  getLastArgumentFromFunction,
+  getFunctionNameFromFunctionExpression
 } = require('../helpers/getHelpers.js');
 
 const replaceReplies = require('../helpers/replaceReplies.js');
 
 const {
-  isMemberExpression,
   isCallExpression,
 } = require('../helpers/selectionHelpers.js');
 
@@ -18,7 +16,6 @@ const parseTree = require('../helpers/parseTree.js');
 
 const replaceServerInject = require('../helpers/replaceServerInject');
 const replaceCallbackWithAwait = require('../helpers/replaceCallbackWithAwait');
-const replaceCallbackWithAssignment = require('../helpers/replaceCallbackWithAssignment');
 const replaceAutoInjectObject = require('../helpers/replaceAutoInjectObject.js');
 
 module.exports = {
@@ -64,42 +61,6 @@ module.exports = {
           replaceServerInject(func);
         });
       });
-  },
-  replaceCallbacksWithAwait: (ast) => {
-    ast.find(codeshift.Program)
-    .forEach(p => {
-      const calls = [];
-      types.visit(p, {
-        visitCallExpression(func) {
-          const lastArg = getLastArgumentFromFunction(func.value);
-          // if it's a callback method:
-          if (lastArg.type === 'ArrowFunctionExpression') {
-            const callbackArgs = lastArg.params;
-            if (callbackArgs.length > 0) {
-              if (callbackArgs[0].type === 'Identifier') {
-                ['exc', 'err'].forEach(errName => {
-                  if (callbackArgs[0].name.startsWith(errName)) {
-                    calls.push(func);
-                  }
-                });
-              }
-            }
-          }
-          this.traverse(func);
-        }
-      });
-      calls.reverse();
-      calls.forEach(func => {
-        // get the callback:
-        const callback = getLastArgumentFromFunction(func.value);
-        if (callback.params.length === 1) {
-          func.replace(replaceCallbackWithAwait(func));
-        }
-        // get the callback name that we'll use for the variable assignment:
-        const varName = callback.params[1].name;
-        func.replace(replaceCallbackWithAssignment(func, 'const', varName));
-      });
-    });
   },
   replaceRoutes: (ast) => {
     ast.find(codeshift.Property)

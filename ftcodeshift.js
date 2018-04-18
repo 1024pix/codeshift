@@ -1,6 +1,8 @@
 const { getAstFromFilePath, getYamlFromFilePath, writeToFile, writeToYamlFile } = require('./lib/utilities.js');
 // updates hapi-views config:
 const migrateHapiViews = require('./lib/migrateHapiViews.js');
+// rules to converts es6 to es7 (async/await):
+const es7Rules = require('./rules/es7Rules.js');
 // rules to converts hapi < 17 to hapi 17:
 const hapiRules = require('./rules/hapiRules.js');
 // rules to convert lab tests to tap tests:
@@ -33,7 +35,7 @@ const argv = require('yargs')
   ruleset: {
     alias: 'r',
     describe: 'which transformation ruleset to apply',
-    choices: ['labToTap', 'hapi17', 'fixTap', 'all'],
+    choices: ['labToTap', 'hapi17', 'fixTap', 'es7', 'all'],
     default: 'all'
   },
 })
@@ -72,6 +74,9 @@ const applyRulesToFile = (input, ruleset, output) => {
   if (ruleset === 'labToTap' || ruleset === 'all') {
     convertFile(ast, labRules);
   }
+  if (ruleset === 'es7' || ruleset === 'all') {
+    convertFile(ast, es7Rules);
+  }
   if (ruleset === 'fixTap') {
     convertFile(ast, fixTapRules);
   }
@@ -84,7 +89,6 @@ const applyRulesToFile = (input, ruleset, output) => {
     writeToFile(output, result);
   }
 };
-
 
 // will update hapi-views to server.methods style
 // assumes hapi-view options are in their own file:
