@@ -80,7 +80,10 @@ const applyRulesToFile = (input, ruleset, output) => {
     convertFile(ast, fixTapRules);
   }
   // convert back to text:
-  const result = ast.toSource({ quote: 'single' });
+  let result = ast.toSource({ quote: 'single' });
+  // clean output of any double-commas or other artifacts:
+  result = result.split(';;').join(';');
+  result = result.split(' ;').join('');
   // print or write it out to file!
   if (!output) {
     console.log(result);

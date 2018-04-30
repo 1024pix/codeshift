@@ -22,7 +22,6 @@ module.exports = (mainObject, mainCallback) => {
     const functionName = getFunctionNameFromFunctionExpression(prop);
     // get the callback name:
     const callbackName = getLastArgumentFromFunction(prop).name;
-    console.log(functionName);
     prop.value.body.body.forEach(expressionStatement => {
       types.visit(expressionStatement, {
         visitCallExpression(func) {
