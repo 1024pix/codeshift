@@ -11,16 +11,18 @@ module.exports = (p) => {
         replies.reply = reply;
         return this.traverse(reply);
       }
+      if (reply.value.callee.property) {
+        if (reply.value.callee.property.name === 'state') {
+          replies.state = reply;
+          return this.traverse(reply);
+        }
+        // replace reply.redirect:
+        if (reply.value.callee.property.name === 'redirect') {
+          replies.redirect = reply;
+          return this.traverse(reply);
+        }
+      }
       // replace reply.state:
-      if (reply.value.callee.property.name === 'state') {
-        replies.state = reply;
-        return this.traverse(reply);
-      }
-      // replace reply.redirect:
-      if (reply.value.callee.property.name === 'redirect') {
-        replies.redirect = reply;
-        return this.traverse(reply);
-      }
       return this.traverse(reply);
     }
   });

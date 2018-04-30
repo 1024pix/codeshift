@@ -26,19 +26,6 @@ module.exports = {
       // replace them with await server.stop()
       .replaceWith(p => replaceCallbackWithAwait(p, 'stop'));
   },
-  replaceAsyncAutoInject: (ast) => {
-    // replace the main body and callback of the autoInject:
-    ast.find(codeshift.CallExpression)
-      .filter(pathway => isCallExpression(pathway, 'async', 'autoInject'))
-      .forEach(p => {
-        // eg async.autoInject(mainObject, mainCallback);
-        const mainObject = p.get('arguments').get(0);
-        const mainCallback = p.get('arguments').get(1);
-        const newBody = codeshift.blockStatement(replaceAutoInjectObject(mainObject, mainCallback));
-        // three levels up is the body of the function, replace it with the new body:
-        p.parentPath.parentPath.parentPath.replace(newBody);
-      });
-  },
   replaceServerInject: (ast) => {
     ast.find(codeshift.Program)
       .forEach(p => {
@@ -72,6 +59,7 @@ module.exports = {
       });
   },
   // replaces hapi-auto-handler routes:
+
   replaceRouteAutoInject: (ast) => {
     // replace the main body and callback of the autoInject:
     ast.find(codeshift.Property)
@@ -95,10 +83,11 @@ module.exports = {
         replaceReplies(p);
       });
   },
+  /*
   replacePlugin: (ast) => {
     // replace the registration method:
     ast.find(codeshift.AssignmentExpression)
-      .filter(pathway => pathway.value.left.property.name === 'register')
+      .filter(pathway => pathway.value.left && pathway.value.left.property.name === 'register')
       .replaceWith(p => {
         // replace 'exports.register =' with 'const register ='
         const varAssign = codeshift.variableDeclaration(
@@ -130,19 +119,18 @@ module.exports = {
         p.replace(codeshift.assignmentExpression('=',
           codeshift.memberExpression(
             codeshift.identifier('exports'),
-            codeshift.identifier('register'),
+            codeshift.identifier('plugin'),
           ), right
         ));
         const registerProp = codeshift.property('init', codeshift.identifier('register'), codeshift.identifier('register'));
         registerProp.shorthand = true;
-        const onceProp = codeshift.property('init', codeshift.identifier('once'), codeshift.literal(true));
-        console.log(right.properties.clear);
-        right.properties.push(prop);
-        // p.value.right.properties = [
-        //   registerProp,
-        //   onceProp
-        // ];
-        // pkg: require('./package.json')
+        const pkgProp = codeshift.property('init', codeshift.identifier('pkg'), codeshift.callExpression(codeshift.identifier('require'), [codeshift.literal('../package.json')]));
+        // right.properties.push(onceProp);
+        p.value.right.properties = [
+          registerProp,
+          pkgProp
+        ];
       });
   }
+  */
 };

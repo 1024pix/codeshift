@@ -1,5 +1,7 @@
 const codeshift = require('jscodeshift');
 
+const replaceCallbacksInBody = require('./replaceCallbacksInBody.js');
+
 const {
   getLastArgumentFromFunction,
 } = require('../helpers/getHelpers.js');
@@ -8,22 +10,18 @@ const {
 // eg func1(done) { myFunc(1234, done); } ----> await myFunc(1234);
 // or func1(request, done) { done(null, request); } --- > request
 module.exports = function replaceCallbackWithAwait(pathway, useCallback) {
-  const newArgs = [];
   const func = pathway.value ? pathway.value : pathway;
-  const methodName = func.callee.type === 'MemberExpression' ? func.callee.property.name : func.callee.name;
+  const lastArg = getLastArgumentFromFunction(func);
   if (useCallback) {
     // if last item is the return value:
-    const lastArg = getLastArgumentFromFunction(func);
     return codeshift.awaitExpression(lastArg);
   }
-  func.arguments.forEach((arg, index) => {
-    if (index < func.arguments.length - 1) {
-      newArgs.push(arg);
-    }
-  });
-  const call = codeshift.callExpression(codeshift.identifier(methodName), newArgs);
-  if (func.callee) {
-    call.callee = func.callee;
+  // replace any occurences of the callback in the body:
+  func.arguments = func.arguments.splice(0, func.arguments.length - 1);
+  // sometimes the last arg is a function expression so that needs to be processed
+  if (lastArg.type === 'Identifier') {
+    replaceCallbacksInBody(func.body, lastArg.name);
   }
-  return codeshift.awaitExpression(call);
+  // todo: handle if last arg is a function expression
+  return codeshift.awaitExpression(func);
 };

@@ -10,7 +10,6 @@ const labRules = require('./rules/labRules.js');
 const path = require('path');
 const fixTapRules = require('./rules/fixTap.js');
 
-
 const convertFile = (ast, ruleset) => {
   Object.values(ruleset).forEach(rule => {
     rule(ast);
@@ -74,7 +73,7 @@ const applyRulesToFile = (input, ruleset, output) => {
   if (ruleset === 'hapi17' || ruleset === 'all') {
     convertFile(ast, hapiRules)
   }
-  if (ruleset === 'labToTap' || ruleset === 'all') {
+  if (ruleset === 'labToTap') {
     convertFile(ast, labRules);
   }
   if (ruleset === 'fixTap') {

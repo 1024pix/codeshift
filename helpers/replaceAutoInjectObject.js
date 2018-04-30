@@ -5,6 +5,7 @@ const codeshift = require('jscodeshift');
 const {
   getFunctionNameFromFunctionExpression,
   getLastArgumentFromFunction,
+  ErrorNames
 } = require('../helpers/getHelpers.js');
 
 const removeReturnParent = require('../helpers/removeReturnParent');
@@ -21,6 +22,7 @@ module.exports = (mainObject, mainCallback) => {
     const functionName = getFunctionNameFromFunctionExpression(prop);
     // get the callback name:
     const callbackName = getLastArgumentFromFunction(prop).name;
+    console.log(functionName);
     prop.value.body.body.forEach(expressionStatement => {
       types.visit(expressionStatement, {
         visitCallExpression(func) {
@@ -47,8 +49,15 @@ module.exports = (mainObject, mainCallback) => {
             // if called with 2 args the 2nd arg is probably the assignment value:
             // todo: maybe try to verify the 1st arg is a null value
             if (func.value.arguments.length === 2) {
-              //   return done(null, simpleAwaitExpression.name);
               const replacement = replaceCallbackWithAssignment(func, 'const', functionName, true);
+              // check if we are just re-assigning the name of a variable, we don't need to do that:
+              if (replacement.declarations[0].id.name === functionName && replacement.declarations[0].init.argument) {
+                const assignmentType = replacement.declarations[0].init.argument.type;
+                if (assignmentType === 'Identifier') {
+                  func.replace();
+                  return false;
+                }
+              }
               if (func.parentPath.value.type === 'ReturnStatement') {
                 func.parentPath.replace(replacement);
               } else {
@@ -79,7 +88,7 @@ module.exports = (mainObject, mainCallback) => {
     // add the content of the callback to the block:
     mainCallback.value.body.body.forEach((item, index) => {
       // don't add any 'if (err)' statements:
-      if (item.type === 'IfStatement' && index === 0) {
+      if (item.type === 'IfStatement' && ErrorNames.includes(item.test.name)) {
         return;
       }
       allProps.push(item);
