@@ -22,6 +22,30 @@ const replaceCallbackWithAssignment = require('../helpers/replaceCallbackWithAss
 const replaceAutoInjectObject = require('../helpers/replaceAutoInjectObject.js');
 
 module.exports = {
+  // replaces hapi-auto-handler routes:
+  replaceRouteAutoInject: (ast) => {
+    // replace the main body and callback of the autoInject:
+    ast.find(codeshift.Property)
+      .filter(pathway => pathway.value.key.name === 'handler' && pathway.value.value.type !== 'FunctionExpression')
+      .forEach(p => {
+        const mainObject = p.get('value').get('properties').get(0).get('value');
+        const allProps = replaceAutoInjectObject(mainObject);
+        // add variables for server, setting:
+        allProps.unshift(parseTree(`
+          const server = request.server;
+        `));
+        allProps.unshift(parseTree(`
+          const settings = request.server.settings.app;
+        `));
+        // // const handler = p.value.value;
+        p.value.value = codeshift.arrowFunctionExpression([
+          codeshift.identifier('request'),
+          codeshift.identifier('h')
+        ], codeshift.blockStatement(allProps));
+        p.value.value.async = true;
+        replaceReplies(p);
+      });
+  },
   replaceServerStop: (ast) => {
     ast.find(codeshift.CallExpression)
       // get all 'server.stop()' expressions
@@ -110,34 +134,10 @@ module.exports = {
         replaceReplies(p);
       });
   },
-  // replaces hapi-auto-handler routes:
-  replaceRouteAutoInject: (ast) => {
-    // replace the main body and callback of the autoInject:
-    ast.find(codeshift.Property)
-      .filter(pathway => pathway.value.key.name === 'handler' && pathway.value.value.type !== 'FunctionExpression')
-      .forEach(p => {
-        const mainObject = p.get('value').get('properties').get(0).get('value');
-        const allProps = replaceAutoInjectObject(mainObject);
-        // add variables for server, setting:
-        allProps.unshift(parseTree(`
-          const server = request.server;
-        `));
-        allProps.unshift(parseTree(`
-          const settings = request.server.settings.app;
-        `));
-        // // const handler = p.value.value;
-        p.value.value = codeshift.arrowFunctionExpression([
-          codeshift.identifier('request'),
-          codeshift.identifier('h')
-        ], codeshift.blockStatement(allProps));
-        p.value.value.async = true;
-        replaceReplies(p);
-      });
-  },
   replacePlugin: (ast) => {
     // replace the registration method:
     ast.find(codeshift.AssignmentExpression)
-      .filter(pathway => pathway.value.left.property.name === 'register')
+      // .filter(pathway => pathway.value.left.property.name === 'register')
       .replaceWith(p => {
         // replace 'exports.register =' with 'const register ='
         const varAssign = codeshift.variableDeclaration(

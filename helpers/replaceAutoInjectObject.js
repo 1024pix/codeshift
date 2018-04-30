@@ -47,7 +47,6 @@ module.exports = (mainObject, mainCallback) => {
             // if called with 2 args the 2nd arg is probably the assignment value:
             // todo: maybe try to verify the 1st arg is a null value
             if (func.value.arguments.length === 2) {
-              //   return done(null, simpleAwaitExpression.name);
               const replacement = replaceCallbackWithAssignment(func, 'const', functionName, true);
               if (func.parentPath.value.type === 'ReturnStatement') {
                 func.parentPath.replace(replacement);
@@ -61,7 +60,7 @@ module.exports = (mainObject, mainCallback) => {
           // a variableDeclaration, eg func1(done) { myFunc(1234, done); } ----> const func1 = await myFunc(1234);
           const expressionCallback = getLastArgumentFromFunction(func);
           if (expressionCallback.name && expressionCallback.name === callbackName) {
-            // replace the function with the assignment:
+            // replace the function with the assignment if it does not have the same name:
             func.replace(replaceCallbackWithAssignment(func, 'const', functionName));
           }
           return this.traverse(func);

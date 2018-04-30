@@ -1,3 +1,4 @@
+// replaces the 'reply' callback in hapi response handlers
 const types = require('ast-types');
 const codeshift = require('jscodeshift');
 
@@ -12,12 +13,12 @@ module.exports = (p) => {
         return this.traverse(reply);
       }
       // replace reply.state:
-      if (reply.value.callee.property.name === 'state') {
+      if (reply.value.callee.property && reply.value.callee.property.name === 'state') {
         replies.state = reply;
         return this.traverse(reply);
       }
       // replace reply.redirect:
-      if (reply.value.callee.property.name === 'redirect') {
+      if (reply.value.callee.property && reply.value.callee.property.name === 'redirect') {
         replies.redirect = reply;
         return this.traverse(reply);
       }
