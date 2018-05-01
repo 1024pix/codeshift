@@ -3,6 +3,8 @@ const { getAstFromFilePath, getYamlFromFilePath, writeToFile, writeToYamlFile } 
 const migrateHapiViews = require('./lib/migrateHapiViews.js');
 // rules to converts es6 to es7 (async/await):
 const es7Rules = require('./rules/es7Rules.js');
+// rules to converts es6 to es7 (async/await):
+const cleanupRules = require('./rules/cleanupRules.js');
 // rules to converts hapi < 17 to hapi 17:
 const hapiRules = require('./rules/hapiRules.js');
 // rules to convert lab tests to tap tests:
@@ -51,13 +53,6 @@ const argv = require('yargs')
     default: false
   },
 })
-.options({
-  custom: {
-    alias: 'c',
-    describe: 'optional, the name of a file listing methods that will always be callbacks',
-    default: false
-  },
-})
 // future features:
 /*
 .options({
@@ -86,6 +81,7 @@ const applyRulesToFile = (input, ruleset, output, custom) => {
   if (ruleset === 'fixTap') {
     convertFile(ast, fixTapRules);
   }
+  convertFile(ast, cleanupRules);
   // convert back to text:
   let result = ast.toSource({ quote: 'single' });
   // clean output of any double-commas or other artifacts:

@@ -73,7 +73,6 @@ module.exports = {
       replaceMethodWithAsync(p.value);
     });
   },
-
   replaceCallbacksWithAwait: (ast, source) => {
     ast.find(codeshift.Program)
     .forEach(p => {
@@ -111,16 +110,4 @@ module.exports = {
       });
     });
   },
-  // strip variable declarations that are not used:
-  stripUnused: (ast) => {
-    ast.find(codeshift.VariableDeclaration)
-    .forEach(p => {
-      const varName = p.value.declarations[0].id.name;
-      const match = ast.toSource().match(new RegExp(varName, 'g'));
-      if (match && match.length === 1) {
-        console.log(p.value.declarations[0].init  );
-        p.replace(p.value.declarations[0].init);
-      }
-    });
-  }
 };
