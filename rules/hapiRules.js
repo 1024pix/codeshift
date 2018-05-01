@@ -74,7 +74,7 @@ module.exports = {
         allProps.unshift(parseTree(`
           const settings = request.server.settings.app;
         `));
-        // // const handler = p.value.value;
+        // const handler = p.value.value;
         p.value.value = codeshift.arrowFunctionExpression([
           codeshift.identifier('request'),
           codeshift.identifier('h')

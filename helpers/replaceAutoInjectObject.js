@@ -23,6 +23,7 @@ module.exports = (mainObject, mainCallback) => {
     // get the callback name:
     const callbackName = getLastArgumentFromFunction(prop).name;
     prop.value.body.body.forEach(expressionStatement => {
+      // clean up the content of each function
       types.visit(expressionStatement, {
         visitCallExpression(func) {
           // for any call to the callbackName, replace it with an awaitExpr
@@ -72,6 +73,7 @@ module.exports = (mainObject, mainCallback) => {
             // replace the function with the assignment:
             func.replace(replaceCallbackWithAssignment(func, 'const', functionName));
           }
+
           return this.traverse(func);
         }
       });

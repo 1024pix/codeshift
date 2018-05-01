@@ -69,11 +69,11 @@ const argv = require('yargs')
 const applyRulesToFile = (input, ruleset, output, custom) => {
   // parse and apply transformation rules:
   const { source, ast } = getAstFromFilePath(input);
-  if (ruleset === 'hapi17' || ruleset === 'all') {
-    convertFile(ast, hapiRules, source)
-  }
   if (ruleset === 'es7' || ruleset === 'all') {
     convertFile(ast, es7Rules, source);
+  }
+  if (ruleset === 'hapi17' || ruleset === 'all') {
+    convertFile(ast, hapiRules, source)
   }
   if (ruleset === 'labToTap') {
     convertFile(ast, labRules);
@@ -88,7 +88,7 @@ const applyRulesToFile = (input, ruleset, output, custom) => {
   result = result.split(';;').join(';');
   result = result.split(' ;').join('');
   // add any missing include statements to the top:
-  
+
   // print or write it out to file!
   if (!output) {
     console.log(result);
