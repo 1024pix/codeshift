@@ -3,7 +3,9 @@ const codeshift = require('jscodeshift');
 const replaceMethodWithAsync = require('../helpers/replaceMethodWithAsync.js');
 const replaceCallbackWithAssignment = require('../helpers/replaceCallbackWithAssignment');
 const replaceCallbackWithAwait = require('../helpers/replaceCallbackWithAwait');
+const replaceCallbacksInBody = require('../helpers/replaceCallbacksInBody');
 const replaceAutoInjectObject = require('../helpers/replaceAutoInjectObject.js');
+const parseTree = require('../helpers/parseTree');
 
 // helpers:
 const {
@@ -16,6 +18,27 @@ const {
 } = require('../helpers/selectionHelpers.js');
 
 module.exports = {
+  replaceAsyncMapValues: (ast) => {
+    ast.find(codeshift.CallExpression)
+      .filter(pathway => isCallExpression(pathway, 'async', 'mapValues'))
+      .forEach(p => {
+        p.value.callee = p.value.callee.property;
+        p.value.callee.name = 'pmap';
+        // the promise handler should only keep the middle arg:
+        const method = p.value.arguments[1];
+        const objectName = p.value.arguments[0].name;
+        const valueName = method.params[0].name;
+        const callbackName = method.params[2].name;
+        method.params = [method.params[1]];
+        const keyName = method.params[0].name;
+        // we will iterate over the keys of the object:
+        p.value.arguments[0] = parseTree(`Object.keys(${objectName})`);
+        // we will add a reference to the value name:
+        method.body.body.unshift(parseTree(`const ${valueName} = ${objectName}[${keyName}];`));
+        // and replace the replies:
+        replaceCallbacksInBody(method.body.body, callbackName);
+      });
+  },
   replaceAsyncAutoInject: (ast) => {
     // replace the main body and callback of the autoInject:
     ast.find(codeshift.CallExpression)

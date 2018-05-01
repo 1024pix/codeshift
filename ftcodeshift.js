@@ -87,6 +87,8 @@ const applyRulesToFile = (input, ruleset, output, custom) => {
   // clean output of any double-commas or other artifacts:
   result = result.split(';;').join(';');
   result = result.split(' ;').join('');
+  // add any missing include statements to the top:
+  
   // print or write it out to file!
   if (!output) {
     console.log(result);

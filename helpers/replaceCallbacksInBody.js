@@ -6,7 +6,6 @@ const {
   getLastArgumentFromFunction
 } = require('../helpers/getHelpers.js');
 
-
 module.exports = (body, callbackName) => {
   types.visit(body, {
     visitCallExpression(func) {
@@ -34,9 +33,11 @@ module.exports = (body, callbackName) => {
         // pop off the last arg and push it into a Return node:
         if (func.value.arguments.length === 2) {
           // ??? does this need a 'return'?
-          if (func.parentPath.value.type !== 'ExpressionStatement') {
+          // if (func.parentPath.value.type !== 'ExpressionStatement') {
             func.parentPath.replace(func.value.arguments[1]);
-          }
+          // }
+          // console.log('toherwise');
+          // console.log(func.parentPath.value);
           return false;
         }
       }
