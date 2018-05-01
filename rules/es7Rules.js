@@ -54,7 +54,6 @@ module.exports = {
     ast.find(codeshift.CallExpression)
     .filter(p => {
       const lastArg = getLastArgumentFromFunction(p.value);
-      console.log(lastArg.type);
       // todo: see if any calls to that callback are of length > 2, if so then don't mess for now
       // todo: also include ones where the last argument is a function expression
       return (lastArg.name && CallbackNames.includes(lastArg.name)) || lastArg.type === 'ArrowFunctionExpression';
@@ -75,7 +74,7 @@ module.exports = {
     });
   },
 
-  replaceCallbacksWithAwait: (ast) => {
+  replaceCallbacksWithAwait: (ast, source) => {
     ast.find(codeshift.Program)
     .forEach(p => {
       const calls = [];
@@ -110,6 +109,18 @@ module.exports = {
         const varName = callback.params[callback.params.length - 1].name;
         func.replace(replaceCallbackWithAssignment(func, 'const', varName));
       });
+    });
+  },
+  // strip variable declarations that are not used:
+  stripUnused: (ast) => {
+    ast.find(codeshift.VariableDeclaration)
+    .forEach(p => {
+      const varName = p.value.declarations[0].id.name;
+      const match = ast.toSource().match(new RegExp(varName, 'g'));
+      if (match && match.length === 1) {
+        console.log(p.value.declarations[0].init  );
+        p.replace(p.value.declarations[0].init);
+      }
     });
   }
 };

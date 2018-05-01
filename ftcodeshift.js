@@ -10,9 +10,9 @@ const labRules = require('./rules/labRules.js');
 const path = require('path');
 const fixTapRules = require('./rules/fixTap.js');
 
-const convertFile = (ast, ruleset) => {
+const convertFile = (ast, ruleset, source) => {
   Object.values(ruleset).forEach(rule => {
-    rule(ast);
+    rule(ast, source);
   });
 };
 
@@ -51,6 +51,13 @@ const argv = require('yargs')
     default: false
   },
 })
+.options({
+  custom: {
+    alias: 'c',
+    describe: 'optional, the name of a file listing methods that will always be callbacks',
+    default: false
+  },
+})
 // future features:
 /*
 .options({
@@ -64,14 +71,14 @@ const argv = require('yargs')
 .help()
 .argv;
 
-const applyRulesToFile = (input, ruleset, output) => {
+const applyRulesToFile = (input, ruleset, output, custom) => {
   // parse and apply transformation rules:
-  const ast = getAstFromFilePath(input);
+  const { source, ast } = getAstFromFilePath(input);
   if (ruleset === 'es7' || ruleset === 'all') {
-    convertFile(ast, es7Rules);
+    convertFile(ast, es7Rules, source);
   }
   if (ruleset === 'hapi17' || ruleset === 'all') {
-    convertFile(ast, hapiRules)
+    convertFile(ast, hapiRules, source)
   }
   if (ruleset === 'labToTap') {
     convertFile(ast, labRules);
@@ -140,4 +147,4 @@ if (argv.project) {
   // apply rules to each one and write out with appellation
 }
 // will transform a single file to the output file according to the ruleset:
-applyRulesToFile(argv.input, argv.ruleset, argv.output);
+applyRulesToFile(argv.input, argv.ruleset, argv.output, argv.custom);
