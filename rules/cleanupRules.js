@@ -8,6 +8,7 @@ module.exports = {
     .forEach(p => {
       if (p.value.argument.type === 'Literal') {
         p.replace();
+        return;
       }
       // if the member expression rightmost term is not a function don't 'await' it:
       if (p.value.argument.type === 'MemberExpression') {
@@ -23,10 +24,10 @@ module.exports = {
     .forEach(p => {
       try {
         const varName = p.value.declarations[0].id.name;
+        // check if this is referenced anywhere else below:
         const res = ast.toSource({ quote: 'single' });
         const ast = codeshift(res);
         const match = res.match(new RegExp(varName, 'g'));
-        // const match = ast.toSource({ quote: 'single' }).match(new RegExp(varName, 'g'));
         if (match && match.length === 1) {
           return p.replace(p.value.declarations[0].init);
         }
