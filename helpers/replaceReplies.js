@@ -34,6 +34,19 @@ module.exports = (p) => {
   }
   // otherwise we need to make an h.response() object and call things on it:
   const arguments = replies.reply ? replies.reply.value.arguments : [];
+  // check if there is already a 'const response' below:
+  let responseAlreadDeclared = false;
+  types.visit(p, {
+    visitVariableDeclaration(decl) {
+      if (decl.value.declarations[0].id.name === 'response') {
+        responseAlreadDeclared = true;
+      }
+      return this.traverse(decl);
+    }
+  });
+  if (responseAlreadDeclared) {
+    return;
+  }
   const call = codeshift.callExpression(codeshift.identifier('response'), arguments);
   call.callee = codeshift.memberExpression(codeshift.identifier('h'), codeshift.identifier('response'));
   const responseObj = codeshift.variableDeclaration(
@@ -46,7 +59,6 @@ module.exports = (p) => {
   if (replies.redirect) {
     replies.redirect.value.callee.object.name = 'response';
   }
-
   if (replies.state) {
     replies.state.value.callee.object.name = 'response';
   }
