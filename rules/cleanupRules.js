@@ -39,12 +39,12 @@ module.exports = {
       }
     });
   },
-  // always return if last item in a block is a variable declaration
+  // always return if last item in a block is a variable declaration or function call
   returnLastDeclaration: (ast) => {
     ast.find(codeshift.BlockStatement)
     .forEach(p => {
       const lastStatement = p.value.body[p.value.body.length - 1];
-      if (lastStatement.type === 'ExpressionStatement') {
+      if (lastStatement.type === 'ExpressionStatement' && lastStatement.expression) {
         if (lastStatement.expression.type === 'VariableDeclaration') {
           const varName = lastStatement.expression.declarations[0].id.name;
           p.value.body.push(`return ${varName};`);
