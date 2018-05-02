@@ -38,5 +38,22 @@ module.exports = {
       } catch (e) {
       }
     });
+  },
+  // always return if last item in a block is a variable declaration
+  returnLastDeclaration: (ast) => {
+    ast.find(codeshift.BlockStatement)
+    .forEach(p => {
+      const lastStatement = p.value.body[p.value.body.length - 1];
+      if (lastStatement.type === 'ExpressionStatement') {
+        if (lastStatement.expression.type === 'VariableDeclaration') {
+          const varName = lastStatement.expression.declarations[0].id.name;
+          p.value.body.push(`return ${varName};`);
+          return;
+        }
+        if (lastStatement.expression.type === 'CallExpression') {
+          p.value.body[p.value.body.length - 1] = codeshift.returnStatement(lastStatement.expression);
+        }
+      }
+    });
   }
 };
