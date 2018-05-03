@@ -47,6 +47,11 @@ module.exports = (p) => {
   if (responseAlreadDeclared) {
     return;
   }
+  // don't add anything if there is already a 'return' statement at the end of the handler:
+  const lastExpression = p.value.value.body.body[p.value.value.body.body.length - 1];
+  if (lastExpression.expression && lastExpression.expression.type === 'ReturnStatement') {
+    return;
+  }
   const call = codeshift.callExpression(codeshift.identifier('response'), arguments);
   call.callee = codeshift.memberExpression(codeshift.identifier('h'), codeshift.identifier('response'));
   const responseObj = codeshift.variableDeclaration(

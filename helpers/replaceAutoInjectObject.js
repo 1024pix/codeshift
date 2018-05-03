@@ -8,6 +8,7 @@ const {
   ErrorNames
 } = require('../helpers/getHelpers.js');
 
+const parseTree = require('../helpers/parseTree');
 const removeReturnParent = require('../helpers/removeReturnParent');
 const replaceCallbackWithAssignment = require('../helpers/replaceCallbackWithAssignment');
 
@@ -18,11 +19,18 @@ module.exports = (mainObject, mainCallback) => {
   // loop over each function call in the main object and get the function name and the callback name
   // and then look for occurences of that callback in the function body:
   const properties = mainObject.get('properties');
+  // if there is a 'reply' clause then we need to return its results at the bottom of the method:
+  let reply = undefined;
   properties.value.forEach(prop => {
     const functionName = getFunctionNameFromFunctionExpression(prop);
     // get the callback name:
     const callbackName = getLastArgumentFromFunction(prop).name;
     prop.value.body.body.forEach(expressionStatement => {
+      // if it is an async function, just set the value to the return value:
+      if (prop.value.async) {
+
+      }
+      console.log(prop.value.async);
       // clean up the content of each function
       types.visit(expressionStatement, {
         visitCallExpression(func) {
@@ -32,6 +40,11 @@ module.exports = (mainObject, mainCallback) => {
             // if not called with args just nuke it:
             if (func.value.arguments.length === 0) {
               removeReturnParent(func);
+              // if it was the 'reply' statement be sure to return nothing:
+              if (functionName === 'reply') {
+                func.replace(parseTree('return;'));
+                return false;
+              }
               func.replace();
               return false;
             }
@@ -54,6 +67,10 @@ module.exports = (mainObject, mainCallback) => {
               if (replacement.declarations[0].id.name === functionName && replacement.declarations[0].init.argument) {
                 const assignmentType = replacement.declarations[0].init.argument.type;
                 if (assignmentType === 'Identifier') {
+                  if (functionName === 'reply') {
+                    func.replace(parseTree(`return ${replacement.declarations[0].init.argument.name};`));
+                    return false;
+                  }
                   func.replace();
                   return false;
                 }
