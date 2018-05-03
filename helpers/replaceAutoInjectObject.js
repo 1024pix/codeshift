@@ -19,19 +19,45 @@ module.exports = (mainObject, mainCallback) => {
   // loop over each function call in the main object and get the function name and the callback name
   // and then look for occurences of that callback in the function body:
   const properties = mainObject.get('properties');
-  // if there is a 'reply' clause then we need to return its results at the bottom of the method:
-  let reply = undefined;
   properties.value.forEach(prop => {
     const functionName = getFunctionNameFromFunctionExpression(prop);
     // get the callback name:
     const callbackName = getLastArgumentFromFunction(prop).name;
     prop.value.body.body.forEach(expressionStatement => {
-      // if it is an async function, just set the value to the return value:
-      if (prop.value.async) {
-
-      }
-      console.log(prop.value.async);
       // clean up the content of each function
+      // if it is an async function, it won't have a callback:
+      if (prop.value.async) {
+        let keep = true;
+        types.visit(expressionStatement, {
+          // for now just set the variable, later this may need to be more complicated:
+          visitReturnStatement(ret) {
+            if (!ret.value.argument) {
+              return this.traverse(ret);
+            }
+            // if it is an identier it is either the functionName or it has already been declared above:
+            if (ret.value.argument.type === 'Identifier') {
+              if (functionName === ret.value.argument.name) {
+                keep = false;
+              }
+              return this.traverse(ret);
+            }
+            // if it is a method call add 'await':
+            const value = ret.value.argument.type === 'CallExpression' ?
+              codeshift.awaitExpression(ret.value.argument) : ret.value.argument;
+            const varAssign = codeshift.variableDeclaration(
+              'const',
+              [codeshift.variableDeclarator(codeshift.identifier(functionName), value)]
+            );
+            allProps.push(varAssign);
+            keep = false;
+            return this.traverse(ret);
+          }
+        });
+        if (keep) {
+          allProps.push(expressionStatement);
+        }
+        return;
+      }
       types.visit(expressionStatement, {
         visitCallExpression(func) {
           // for any call to the callbackName, replace it with an awaitExpr
@@ -66,9 +92,10 @@ module.exports = (mainObject, mainCallback) => {
               // check if we are just re-assigning the name of a variable, we don't need to do that:
               if (replacement.declarations[0].id.name === functionName && replacement.declarations[0].init.argument) {
                 const assignmentType = replacement.declarations[0].init.argument.type;
-                if (assignmentType === 'Identifier') {
+                if (assignmentType === 'Identifier' || assignmentType === 'Literal') {
+                  const assignmentName = assignmentType === 'Identifier' ? 'name' : 'value'
                   if (functionName === 'reply') {
-                    func.replace(parseTree(`return ${replacement.declarations[0].init.argument.name};`));
+                    func.replace(parseTree(`return ${replacement.declarations[0].init.argument[assignmentName]};`));
                     return false;
                   }
                   func.replace();
