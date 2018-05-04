@@ -34,7 +34,7 @@ module.exports = (body, callbackName) => {
         if (func.value.arguments.length === 2) {
           // ??? does this need a 'return'?
           if (func.parentPath.value.type !== 'ExpressionStatement') {
-            func.parentPath.replace(func.value.arguments[1]);
+            func.replace(func.value.arguments[1]);
           } else {
             func.replace(codeshift.returnStatement(func.value.arguments[1]));
           }

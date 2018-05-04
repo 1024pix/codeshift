@@ -17,7 +17,52 @@ const {
   isCallExpression,
 } = require('../helpers/selectionHelpers.js');
 
+const needsLibrary = (ast) => {
+  ast.find(codeshift.CallExpression)
+  forEach(p => {
+
+  });
+};
+
 module.exports = {
+  replacePromisify: (ast) => {
+    ast.find(codeshift.CallExpression)
+      .filter(pathway => {
+        if (isCallExpression(pathway, 'util', 'promisify')) {
+          return true;
+        }
+        if (pathway.value.callee && pathway.value.callee.name === 'promisify') {
+          return true;
+        }
+      })
+      .forEach(p => {
+        // todo turn this into an await
+        console.log(p.value);
+      });
+  },
+  replaceAsyncEachOf: (ast) => {
+    ast.find(codeshift.CallExpression)
+      .filter(pathway => isCallExpression(pathway, 'async', 'eachOf'))
+      .forEach(p => {
+        p.value.callee = p.value.callee.property;
+        p.value.callee.name = 'pmap';
+        const method = p.value.arguments[1];
+        const objectName = p.value.arguments[0].name;
+        const valueName = method.params[0].name;
+        method.params = [method.params[1]];
+        const keyName = method.params[0].name;
+
+        // we will iterate over the keys of the object:
+        p.value.arguments[0] = parseTree(`Object.keys(${objectName})`);
+        // we will add a reference to the value name:
+        method.body.body.unshift(parseTree(`const ${valueName} = ${objectName}[${keyName}];`));
+        // and replace the replies:
+        if (method.params.length === 3) {
+          const callbackName = method.params[2].name;
+          replaceCallbacksInBody(method.body.body, callbackName);
+        }
+      });
+  },
   replaceAsyncMapValues: (ast) => {
     ast.find(codeshift.CallExpression)
       .filter(pathway => isCallExpression(pathway, 'async', 'mapValues'))
@@ -84,7 +129,6 @@ module.exports = {
     .forEach(p => {
       replaceMethodWithAsync(p.value);
     });
-
     ast.find(codeshift.FunctionExpression)
     .filter(p => {
       const lastArg = getLastArgumentFromFunction(p.value);

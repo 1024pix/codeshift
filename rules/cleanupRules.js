@@ -20,40 +20,71 @@ module.exports = {
   },
   // strip variable declarations that are not used:
   stripUnused: (ast) => {
+    const varNames = {};
+    // get all declarations:
     ast.find(codeshift.VariableDeclaration)
     .forEach(p => {
-      try {
-        const varName = p.value.declarations[0].id.name;
-        // check if this is referenced anywhere else below:
-        const res = ast.toSource({ quote: 'single' });
-        const ast = codeshift(res);
-        const match = res.match(new RegExp(varName, 'g'));
-        if (match && match.length === 1) {
-          return p.replace(p.value.declarations[0].init);
+      varNames[p.value.declarations[0].id.name] = p;
+    });
+    // get all references to it:
+    ast.find(codeshift.Identifier)
+    .forEach(p => {
+      const decl = varNames[p.value.name];
+      if (decl) {
+        if (decl.value.loc) {
+          if (p.value.loc.start.line !== decl.value.loc.start.line) {
+            delete varNames[p.value.name];
+          }
+        } else {
+          delete varNames[p.value.name];
         }
-        // if the only reference is the declaration or on the same line,
-        if (match && ['settings', 'server'].includes(varName) && match.length === 2) {
-          p.replace('');
-        }
-      } catch (e) {
       }
     });
+    // now delete everything left over:
+    Object.values(varNames).forEach(p => {
+      p.replace();
+    });
   },
+  // remove duplicated variable declarations (under construction)
+  // stripDuplicates: (ast) => {
+    // loop over every variable declaration
+  //   ast.find(codeshift.VariableDeclaration)
+  //   .forEach(var1 => {
+  //     ast.find(codeshift.VariableDeclaration)
+  //     .forEach(var2 => {
+  //       if (var1 !== var2) {
+  //         const name1 = var1.value.declarations[0].id.name;
+  //         const name2 = var2.value.declarations[0].id.name;
+  //         if (name1 === name2) {
+  //           // console.log(var1);
+  //         }
+  //       }
+  //     });
+  //   });
+  // },
   // always return if last item in a block is a variable declaration or function call
   returnLastDeclaration: (ast) => {
-    ast.find(codeshift.BlockStatement)
+    ast.find(codeshift.FunctionExpression)
+    .forEach(f => {
+      types.visit(f, {
+        visitBlockStatement(p) {
+          const lastStatement = p.value.body[p.value.body.length - 1];
+          if (lastStatement.type === 'ExpressionStatement' && lastStatement.expression) {
+            if (lastStatement.expression.type === 'VariableDeclaration') {
+              const varName = lastStatement.expression.declarations[0].id.name;
+              p.value.body.push(`return ${varName};`);
+              return this.traverse(p);
+            }
+            if (lastStatement.expression.type === 'CallExpression') {
+              p.value.body[p.value.body.length - 1] = codeshift.returnStatement(lastStatement.expression);
+            }
+          }
+          return this.traverse(p);
+        }
+      });
+    });
+    ast.find(codeshift.ArrowFunctionExpression)
     .forEach(p => {
-      const lastStatement = p.value.body[p.value.body.length - 1];
-      if (lastStatement.type === 'ExpressionStatement' && lastStatement.expression) {
-        if (lastStatement.expression.type === 'VariableDeclaration') {
-          const varName = lastStatement.expression.declarations[0].id.name;
-          p.value.body.push(`return ${varName};`);
-          return;
-        }
-        if (lastStatement.expression.type === 'CallExpression') {
-          p.value.body[p.value.body.length - 1] = codeshift.returnStatement(lastStatement.expression);
-        }
-      }
     });
   }
 };
