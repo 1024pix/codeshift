@@ -36,8 +36,10 @@ module.exports = {
         }
       })
       .forEach(p => {
-        // todo turn this into an await
-        console.log(p.value);
+        // the parent is the call to the Promise:
+        const arguments = p.parentPath.value.arguments;
+        const call = codeshift.callExpression(p.value.arguments[0], arguments);
+        p.parentPath.replace(call);
       });
   },
   replaceAsyncEachOf: (ast) => {
