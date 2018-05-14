@@ -64,27 +64,45 @@ module.exports = {
   // },
   // always return if last item in a block is a variable declaration or function call
   returnLastDeclaration: (ast) => {
-    ast.find(codeshift.FunctionExpression)
-    .forEach(f => {
-      types.visit(f, {
-        visitBlockStatement(p) {
-          const lastStatement = p.value.body[p.value.body.length - 1];
-          if (lastStatement.type === 'ExpressionStatement' && lastStatement.expression) {
-            if (lastStatement.expression.type === 'VariableDeclaration') {
-              const varName = lastStatement.expression.declarations[0].id.name;
-              p.value.body.push(`return ${varName};`);
-              return this.traverse(p);
-            }
-            if (lastStatement.expression.type === 'CallExpression') {
-              p.value.body[p.value.body.length - 1] = codeshift.returnStatement(lastStatement.expression);
-            }
-          }
-          return this.traverse(p);
-        }
-      });
-    });
-    ast.find(codeshift.ArrowFunctionExpression)
+    ast.find(codeshift.BlockStatement)
     .forEach(p => {
+      // check if parent is func
+      if (p.parentPath.value.type === 'ArrowFunctionExpression' || p.parentPath.value.type === 'FunctionExpression') {
+        const lastStatement = p.value.body[p.value.body.length - 1];
+        if (lastStatement.type === 'ExpressionStatement' && lastStatement.expression) {
+          // if the last statement declares a variable, add a returrn under it:
+          if (lastStatement.expression.type === 'VariableDeclaration') {
+            const varName = lastStatement.expression.declarations[0].id.name;
+            p.value.body.push(`return ${varName};`);
+            return;
+          }
+          if (lastStatement.expression.type === 'CallExpression') {
+            p.value.body[p.value.body.length - 1] = codeshift.returnStatement(lastStatement.expression);
+          }
+        }
+      }
     });
+    // ast.find(codeshift.FunctionExpression)
+    // .forEach(f => {
+    //   types.visit(f, {
+    //     visitBlockStatement(p) {
+    //       const lastStatement = p.value.body[p.value.body.length - 1];
+    //       if (lastStatement.type === 'ExpressionStatement' && lastStatement.expression) {
+    //         if (lastStatement.expression.type === 'VariableDeclaration') {
+    //           const varName = lastStatement.expression.declarations[0].id.name;
+    //           p.value.body.push(`return ${varName};`);
+    //           return this.traverse(p);
+    //         }
+    //         if (lastStatement.expression.type === 'CallExpression') {
+    //           p.value.body[p.value.body.length - 1] = codeshift.returnStatement(lastStatement.expression);
+    //         }
+    //       }
+    //       return this.traverse(p);
+    //     }
+    //   });
+    // });
+    // ast.find(codeshift.ArrowFunctionExpression)
+    // .forEach(p => {
+    // });
   }
 };
