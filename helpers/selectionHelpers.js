@@ -57,10 +57,19 @@ function isMemberExpression(pathway, objectName, propertyName) {
   return (expression.object && expression.object.name === objectName && expression.property.name === propertyName);
 }
 
+// function to determine if an expression is an identifer:
+function getExpressionType(pathway) {
+  while (pathway.type === 'MemberExpression') {
+    pathway = pathway.property;
+  }
+  return pathway.type;
+}
+
 // export everything:
 module.exports = {
   isCallExpression,
   isFunctionWithCallback,
   isMemberExpression,
+  getExpressionType,
   selectFunctionCalls
 };
