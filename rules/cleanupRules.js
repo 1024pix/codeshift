@@ -1,7 +1,63 @@
 const types = require('ast-types');
 const codeshift = require('jscodeshift');
 const { getExpressionType } = require('../helpers/selectionHelpers');
+const parseTree = require('../helpers/parseTree.js');
+
 module.exports = {
+  // any redefined consts may need to be lets:
+  constToLet: (ast) => {
+    const allNames = {};
+    ast.find(codeshift.VariableDeclaration)
+    .filter(p => p.value.kind === 'const')
+    .forEach(p => {
+      if (allNames[p.value.declarations[0].id.name]) {
+        allNames[p.value.declarations[0].id.name].push(p);
+      } else {
+        allNames[p.value.declarations[0].id.name] = [p];
+      }
+    });
+    // also get assignment expressions referencing this variable:
+    ast.find(codeshift.AssignmentExpression)
+    .filter(p => p.value.left.type === 'Identifier')
+    .forEach(p => {
+      if (allNames[p.value.left.name]) {
+        allNames[p.value.left.name].push(p);
+      } else {
+        allNames[p.value.left.name] = [p];
+      }
+    });
+    Object.keys(allNames).forEach(varName => {
+      const varDecls = allNames[varName];
+      // ignore it if it was only declared one time:
+      if (varDecls.length === 1) {
+        return;
+      }
+      // turn the first one into a let:
+      varDecls[0].value.kind = 'let';
+      // turn all var decls into assignment expressions:
+      for (let i = 1; i < varDecls.length; i++) {
+        const varDecl = varDecls[i];
+        if (varDecl.value.type === 'VariableDeclaration') {
+          const newAssignment = codeshift.expressionStatement(
+            codeshift.assignmentExpression('=',
+              codeshift.identifier(varName),
+              varDecl.value.declarations[0].init));
+          varDecl.replace(newAssignment);
+        }
+      }
+    });
+
+    // also do the same for assignment expressions:
+    ast.find(codeshift.AssignmentExpression)
+    .filter(p => p.value.kind === 'const')
+    .forEach(p => {
+      if (allNames[p.value.declarations[0].id.name]) {
+        allNames[p.value.declarations[0].id.name].push(p);
+      } else {
+        allNames[p.value.declarations[0].id.name] = [p];
+      }
+    });
+  },
   // strip out anything that is 'await <literal>'
   stripUnusedAwaits: (ast) => {
     ast.find(codeshift.AwaitExpression)
