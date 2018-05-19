@@ -4,6 +4,10 @@ const { getExpressionType } = require('../helpers/selectionHelpers');
 const parseTree = require('../helpers/parseTree.js');
 
 module.exports = {
+  // any functions containing 'await' expressions need to be async:
+  asyncify: (ast) => {
+
+  },
   // any redefined consts may need to be lets:
   constToLet: (ast) => {
     const allNames = {};
