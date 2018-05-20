@@ -95,8 +95,17 @@ module.exports = {
         const mainObject = p.get('arguments').get(0);
         const mainCallback = p.get('arguments').get(1);
         const newBody = codeshift.blockStatement(replaceAutoInjectObject(mainObject, mainCallback));
-        // three levels up is the body of the function, replace it with the new body:
-        p.parentPath.parentPath.parentPath.replace(newBody);
+        // todo: might need to get first parent that is a blockStatement:
+        if (Array.isArray(p.parentPath.parentPath.value)) {
+          newBody.body.forEach(item => {
+            p.parentPath.parentPath.parentPath.value.body.push(item);
+          });
+          p.replace();
+        } else {
+          // three levels up is the body of the function, replace it with the new body:
+          const newBody = codeshift.blockStatement(replaceAutoInjectObject(mainObject, mainCallback));
+          p.parentPath.parentPath.parentPath.replace(newBody);
+        }
         // make sure to convert any references to 'results.whatever' to just 'whatever'
         types.visit(p, {
           visitMemberExpression(member) {

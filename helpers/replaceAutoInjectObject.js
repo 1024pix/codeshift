@@ -5,7 +5,8 @@ const codeshift = require('jscodeshift');
 const {
   getFunctionNameFromFunctionExpression,
   getLastArgumentFromFunction,
-  ErrorNames
+  ErrorNames,
+  CallbackNames
 } = require('../helpers/getHelpers.js');
 
 const parseTree = require('../helpers/parseTree');
@@ -133,8 +134,14 @@ module.exports = (mainObject, mainCallback) => {
     // add the content of the callback to the block:
     mainCallback.value.body.body.forEach((item, index) => {
       // don't add any 'if (err)' statements:
-      if (item.type === 'IfStatement' && ErrorNames.includes(item.test.name)) {
-        return;
+      if (item.type === 'IfStatement') {
+        if (ErrorNames.includes(item.test.name)) {
+          return;
+        }
+        // sometimes we are checking if the callback exists:
+        if (CallbackNames.includes(item.test.name)) {
+          return;
+        }
       }
       allProps.push(item);
     });
