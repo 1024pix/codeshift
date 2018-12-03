@@ -12,6 +12,8 @@ const labRules = require('./rules/labRules.js');
 const path = require('path');
 const fixTapRules = require('./rules/fixTap.js');
 
+const pixRules = require('./rules/pixRules.js');
+
 const convertFile = (ast, ruleset, source) => {
   Object.values(ruleset).forEach(rule => {
     rule(ast, source);
@@ -36,7 +38,7 @@ const argv = require('yargs')
   ruleset: {
     alias: 'r',
     describe: 'which transformation ruleset to apply',
-    choices: ['labToTap', 'hapi17', 'fixTap', 'es7', 'all'],
+    choices: ['labToTap', 'hapi17', 'fixTap', 'es7', 'all', 'pix'],
     default: 'all'
   },
 })
@@ -81,17 +83,20 @@ const applyRulesToFile = (input, ruleset, output, custom) => {
   if (ruleset === 'fixTap') {
     convertFile(ast, fixTapRules);
   }
-  convertFile(ast, cleanupRules);
+  if (ruleset === 'pix') {
+    convertFile(ast, pixRules);
+  }
+  // convertFile(ast, cleanupRules);
   // convert back to text:
-  let result = ast.toSource({ quote: 'single' });
+  let result = ast.toSource(); //{ quote: 'single' });
   // clean output of any double-commas or other artifacts:
-  result = result.split(';;').join(';');
-  result = result.split(' ;').join('');
+  // result = result.split(';;').join(';');
+  // result = result.split(' ;').join('');
   // add any missing include statements to the top:
 
   // print or write it out to file!
   if (!output) {
-    console.log(result);
+    process.stdout.write(result);
   } else {
     writeToFile(output, result);
   }
