@@ -33,7 +33,7 @@ module.exports = (p) => {
     return;
   }
   // otherwise we need to make an h.response() object and call things on it:
-  const arguments = replies.reply ? replies.reply.value.arguments : [];
+  const args = replies.reply ? replies.reply.value.arguments : [];
   // check if there is already a 'const response' below:
   let responseAlreadDeclared = false;
   types.visit(p, {
@@ -52,7 +52,7 @@ module.exports = (p) => {
   if (lastExpression.expression && lastExpression.expression.type === 'ReturnStatement') {
     return;
   }
-  const call = codeshift.callExpression(codeshift.identifier('response'), arguments);
+  const call = codeshift.callExpression(codeshift.identifier('response'), args);
   call.callee = codeshift.memberExpression(codeshift.identifier('h'), codeshift.identifier('response'));
   const responseObj = codeshift.variableDeclaration(
     'const',

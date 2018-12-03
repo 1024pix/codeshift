@@ -47,5 +47,6 @@ module.exports = {
            codeshift(id).replaceWith('hStub');
          }
        });
+    return ast;
   },
 };
