@@ -70,8 +70,12 @@ module.exports = {
       .forEach(expr => {
         const func = expr.value.right;
         func.async = true;
-        func.params.pop(); // remove 'done' argument
-        func.body.body.pop(); // remove 'return next()'
+        if (func.params.length > 2) {
+          func.params.pop(); // remove 'done' argument
+        }
+        if (_.last(func.body.body).type === 'ReturnStatement') {
+          func.body.body.pop(); // remove 'return next()'
+        }
       });
 
     // exports.register.attributes = { name: '...' } => exports.name = '...'
