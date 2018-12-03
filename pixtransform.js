@@ -1,6 +1,10 @@
-const { replaceReplyStub } = require('./rules/pixRules');
+const pixRules = require('./rules/pixRules');
 const codeshift = require('jscodeshift');
 
 module.exports = function(fileInfo, api, options) {
-  return replaceReplyStub(codeshift(fileInfo.source), fileInfo.source).toSource();
+  const ast = codeshift(fileInfo.source);
+  Object.values(pixRules).forEach((rule) => {
+    rule(ast);
+  });
+  return ast.toSource();
 };
