@@ -4,7 +4,9 @@ const utilities = require('../lib/utilities.js');
 
 const fs = require('fs');
 
-fs.readdirSync('tests/inputs/pix').forEach(fileName => {
+fs.readdirSync('tests/inputs/pix')
+  .filter(filename => /\.js$/.test(filename))
+  .forEach(fileName => {
   tap.test(`can convert ${fileName}`, t => {
     const { ast, expected } = utilities.getTest(`pix/${fileName}`);
     Object.values(pixRules).forEach((rule) => {
