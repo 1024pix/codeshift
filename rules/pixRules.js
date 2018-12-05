@@ -57,7 +57,7 @@ module.exports = {
   replaceReplyStub(ast) {
     ast.find(codeshift.CallExpression,
              call => call.callee.type === 'MemberExpression'
-                     && /Controller$/.test(call.callee.object.name))
+                     && /ontroller$/.test(call.callee.object.name))
       .forEach(callPath => {
         const lastArg = _.last(callPath.value.arguments);
         if (typeof lastArg === 'object') {
