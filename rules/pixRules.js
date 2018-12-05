@@ -55,34 +55,6 @@ function promisifyCall(path) {
 
 module.exports = {
   replaceReplyStub(ast) {
-    const hasCodeStub = ast.find(codeshift.VariableDeclarator, decl => decl.id.name === 'codeStub').size() > 0;
-    // let replyStub = ...     ->     const hStub = ...
-    ast.find(codeshift.VariableDeclaration,
-             decl => decl.declarations.length === 1
-                     && decl.declarations[0].id.name === 'replyStub')
-       .forEach(p => codeshift(p)
-                       .replaceWith(`const hStub = { response: () => {} };${hasCodeStub ? '' : '\nlet codeStub;'}`));
-
-    // replyStub = ...     ->    hStub.response = ...
-    ast.find(codeshift.AssignmentExpression,
-             expr => expr.left.name === 'replyStub')
-       .forEach(e => {
-         codeshift(e)
-           .replaceWith(`${hasCodeStub ? '' : 'codeStub = sandbox.stub();\n'}hStub.response = sandbox.stub().returns({\n  code: codeStub,\n})`);
-       });
-
-    // expect(replyStub) -> expect(hStub.response)
-    // replyStub -> hStub
-    ast.find(codeshift.Identifier, id => id.name === 'replyStub')
-       .forEach(id => {
-         const [ { callee } ] = codeshift(id).closest(codeshift.CallExpression).nodes();
-         if (callee.name === 'expect') {
-           codeshift(id).replaceWith('hStub.response');
-         } else {
-           codeshift(id).replaceWith('hStub');
-         }
-       });
-
     ast.find(codeshift.CallExpression,
              call => call.callee.type === 'MemberExpression'
                      && /Controller$/.test(call.callee.object.name))
@@ -90,7 +62,8 @@ module.exports = {
         const lastArg = _.last(callPath.value.arguments);
         if (typeof lastArg === 'object') {
           if (lastArg.type === 'CallExpression'
-              || lastArg.name === 'reply') {
+              || lastArg.name === 'reply'
+              || lastArg.name === 'replyStub') {
             callPath.value.arguments[callPath.value.arguments.length - 1] =
               codeshift.objectExpression([
                 codeshift.objectProperty(

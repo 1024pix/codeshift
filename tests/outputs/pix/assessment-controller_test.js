@@ -7,10 +7,11 @@ const assessmentSerializer = require('../../../../lib/infrastructure/serializers
 describe('Unit | Controller | assessment-controller', function() {
 
   describe('#findByFilters', () => {
+
     let sandbox;
 
     let codeStub;
-    const hStub = { response: () => {} };
+    let replyStub;
 
     const assessments = [{ id: 1 }, { id: 2 }];
     const assessmentsInJSONAPI = [{
@@ -29,9 +30,7 @@ describe('Unit | Controller | assessment-controller', function() {
       sandbox = sinon.sandbox.create();
 
       codeStub = sinon.stub();
-      hStub.response = sandbox.stub().returns({
-        code: codeStub,
-      });
+      replyStub = sinon.stub().returns({ code: codeStub });
       sandbox.stub(useCases, 'findCertificationAssessments');
       sandbox.stub(useCases, 'findPlacementAssessments');
       sandbox.stub(useCases, 'findSmartPlacementAssessments');
@@ -51,7 +50,9 @@ describe('Unit | Controller | assessment-controller', function() {
       useCases.findPlacementAssessments.resolves(assessments);
 
       // when
-      const promise = assessmentController.findByFilters(request, hStub);
+      const promise = assessmentController.findByFilters(request, {
+        response: replyStub
+      });
 
       // then
       return promise.then(() => {
@@ -69,11 +70,13 @@ describe('Unit | Controller | assessment-controller', function() {
       assessmentSerializer.serializeArray.returns(assessmentsInJSONAPI);
 
       // when
-      const promise = assessmentController.findByFilters(request, hStub);
+      const promise = assessmentController.findByFilters(request, {
+        response: replyStub
+      });
 
       // then
       return promise.then(() => {
-        expect(hStub.response).to.have.been.calledWithExactly(assessmentsInJSONAPI);
+        expect(replyStub).to.have.been.calledWithExactly(assessmentsInJSONAPI);
       });
     });
 
@@ -89,7 +92,9 @@ describe('Unit | Controller | assessment-controller', function() {
         useCases.findSmartPlacementAssessments.resolves();
 
         // when
-        const promise = assessmentController.findByFilters(request, hStub);
+        const promise = assessmentController.findByFilters(request, {
+          response: replyStub
+        });
 
         // then
         return promise.then(() => {
@@ -113,7 +118,9 @@ describe('Unit | Controller | assessment-controller', function() {
         useCases.findPlacementAssessments.resolves();
 
         // when
-        const promise = assessmentController.findByFilters(request, hStub);
+        const promise = assessmentController.findByFilters(request, {
+          response: replyStub
+        });
 
         // then
         return promise.then(() => {
@@ -137,7 +144,9 @@ describe('Unit | Controller | assessment-controller', function() {
         useCases.findCertificationAssessments.resolves();
 
         // when
-        const promise = assessmentController.findByFilters(request, hStub);
+        const promise = assessmentController.findByFilters(request, {
+          response: replyStub
+        });
 
         // then
         return promise.then(() => {
@@ -158,7 +167,9 @@ describe('Unit | Controller | assessment-controller', function() {
 
       it('should resolve []', function() {
         // when
-        const promise = assessmentController.findByFilters(request, hStub);
+        const promise = assessmentController.findByFilters(request, {
+          response: replyStub
+        });
 
         // then
         return promise.then(() => {
@@ -176,7 +187,9 @@ describe('Unit | Controller | assessment-controller', function() {
 
       it('should resolve []', function() {
         // when
-        const promise = assessmentController.findByFilters(request, hStub);
+        const promise = assessmentController.findByFilters(request, {
+          response: replyStub
+        });
 
         // then
         return promise.then(() => {
