@@ -36,6 +36,14 @@ describe('Unit | Router | answer-router', function() {
     it('should exist', (done) => {
       expectRouteToExist({ method: 'POST', url: '/api/answers' }, done);
     });
+
+    it('should exist', (done) => {
+      return server.inject({ method: 'POST', url: '/api/snapshots' }, (res) => {
+        expect(res.statusCode).to.equal(200);
+        done();
+      });
+    });
+
   });
 
 });

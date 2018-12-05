@@ -29,5 +29,12 @@ describe('Unit | Router | answer-router', function() {
       const res = await server.inject({ method: 'POST', url: '/api/answers' });
       expect(res.statusCode).to.equal(200);
     });
+
+    it('should exist', () => {
+      return server.inject({ method: 'POST', url: '/api/snapshots' }).then((res) => {
+        expect(res.statusCode).to.equal(200);
+      });
+    });
+
   });
 });

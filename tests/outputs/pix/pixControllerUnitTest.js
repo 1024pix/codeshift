@@ -212,7 +212,9 @@ describe('Unit | Controller | assessment-results', () => {
       });
 
       // when
-      const promise = assessmentResultController.save(request, sinon.stub());
+      const promise = assessmentResultController.save(request, {
+        response: sinon.stub()
+      });
 
       // then
       return promise.then(() => {

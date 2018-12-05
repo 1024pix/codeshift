@@ -39,19 +39,40 @@ function anyOf(...types) {
   }
 }
 
+function promisifyCall(path) {
+  const callback = path.value.arguments.pop();
+  const newExpr = codeshift.callExpression(
+    codeshift.memberExpression(
+      path.value,
+      codeshift.identifier('then'),
+  ),
+  [
+    callback
+  ]
+  );
+  codeshift(path).replaceWith(newExpr);
+}
+
 module.exports = {
   replaceReplyStub(ast) {
     const hasCodeStub = ast.find(codeshift.VariableDeclarator, decl => decl.id.name === 'codeStub').size() > 0;
+    // let replyStub = ...     ->     const hStub = ...
     ast.find(codeshift.VariableDeclaration,
-             decl => decl.kind === 'let'
-                     && decl.declarations.length === 1
+             decl => decl.declarations.length === 1
                      && decl.declarations[0].id.name === 'replyStub')
        .forEach(p => codeshift(p)
-                .replaceWith(`const hStub = { response: () => {} };${hasCodeStub ? '' : '\nlet codeStub;'}`));
+                       .replaceWith(`const hStub = { response: () => {} };${hasCodeStub ? '' : '\nlet codeStub;'}`));
+
+    // replyStub = ...     ->    hStub.response = ...
     ast.find(codeshift.AssignmentExpression,
              expr => expr.left.name === 'replyStub')
-       .forEach(e => codeshift(e)
-                .replaceWith(`${hasCodeStub ? '' : 'codeStub = sandbox.stub();\n'}hStub.response = sandbox.stub().returns({\n  code: codeStub,\n})`));
+       .forEach(e => {
+         codeshift(e)
+           .replaceWith(`${hasCodeStub ? '' : 'codeStub = sandbox.stub();\n'}hStub.response = sandbox.stub().returns({\n  code: codeStub,\n})`);
+       });
+
+    // expect(replyStub) -> expect(hStub.response)
+    // replyStub -> hStub
     ast.find(codeshift.Identifier, id => id.name === 'replyStub')
        .forEach(id => {
          const [ { callee } ] = codeshift(id).closest(codeshift.CallExpression).nodes();
@@ -61,7 +82,23 @@ module.exports = {
            codeshift(id).replaceWith('hStub');
          }
        });
-    return ast;
+
+    ast.find(codeshift.CallExpression,
+             call => call.callee.type === 'MemberExpression'
+                     && /Controller$/.test(call.callee.object.name))
+      .forEach(callPath => {
+        const lastArg = _.last(callPath.value.arguments);
+        if (typeof lastArg === 'object' && lastArg.type === 'CallExpression') {
+          callPath.value.arguments[callPath.value.arguments.length - 1] =
+            codeshift.objectExpression([
+              codeshift.objectProperty(
+                codeshift.identifier('response'),
+                lastArg
+              )
+            ]);
+        }
+      });
+
   },
 
   upgradeHapiRoute(ast) {
@@ -70,11 +107,15 @@ module.exports = {
       .forEach(expr => {
         const func = expr.value.right;
         func.async = true;
+
+        // remove 'done' argument
         if (func.params.length > 2) {
-          func.params.pop(); // remove 'done' argument
+          func.params.pop();
         }
+
+        // remove 'return next()'
         if (_.last(func.body.body).type === 'ReturnStatement') {
-          func.body.body.pop(); // remove 'return next()'
+          func.body.body.pop();
         }
       });
 
@@ -142,15 +183,44 @@ module.exports = {
           });
       });
 
-    // upgrade controller stubs
-    ast.find(codeshift.ArrowFunctionExpression,
-             expr => expr.params.length === 2 && _.map(expr.params, 'name').join(',') === 'request,reply')
+  },
+
+  // server.inject({ ... }, cb) => server.inject({ ... }).then(cb)
+  promisifyServerInject(ast) {
+    ast.find(codeshift.CallExpression,
+             expr => normalSource(expr.callee) === 'server.inject' && expr.arguments.length == 2)
       .forEach(path => {
-        path.value.params[1].name = 'h';
-        codeshift(path.value).find(codeshift.CallExpression, expr => expr.callee.name === 'reply')
-          .forEach(replyCall => {
-            replyCall.value.callee = codeshift.memberExpression(codeshift.identifier('h'), codeshift.identifier('response'));
+        promisifyCall(path);
+        codeshift(path).closest(anyOf(codeshift.FunctionExpression, codeshift.ArrowFunctionExpression))
+          .forEach(fnpath => {
+            if (fnpath.value.params.length === 1) {
+              const doneName = fnpath.value.params[0].name;
+              fnpath.value.params.pop();
+              codeshift(fnpath).find(codeshift.CallExpression,
+                                     expr => expr.callee.name === doneName).remove();
+            }
           });
       });
   },
+
+  // reply -> h.response
+  replyToResponseToolkit(ast) {
+    [codeshift.ArrowFunctionExpression, codeshift.FunctionExpression, codeshift.FunctionDeclaration].forEach(type => {
+      ast.find(type,
+               expr => _.some(expr.params, { name: 'reply' }))
+        .forEach(path => {
+          const replyParam = _.find(path.value.params, { name: 'reply' });
+          replyParam.name = 'h';
+          codeshift(path).find(codeshift.CallExpression, expr => expr.callee.name === 'reply')
+            .forEach(replyCall => {
+              replyCall.value.callee = codeshift.memberExpression(codeshift.identifier('h'), codeshift.identifier('response'));
+            });
+          codeshift(path).find(codeshift.Identifier, id => id.name === 'reply')
+            .forEach(path => {
+              path.value.name = 'h';
+            });
+        });
+    });
+  },
+
 };
