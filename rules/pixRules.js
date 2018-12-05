@@ -88,14 +88,17 @@ module.exports = {
                      && /Controller$/.test(call.callee.object.name))
       .forEach(callPath => {
         const lastArg = _.last(callPath.value.arguments);
-        if (typeof lastArg === 'object' && lastArg.type === 'CallExpression') {
-          callPath.value.arguments[callPath.value.arguments.length - 1] =
-            codeshift.objectExpression([
-              codeshift.objectProperty(
-                codeshift.identifier('response'),
-                lastArg
-              )
-            ]);
+        if (typeof lastArg === 'object') {
+          if (lastArg.type === 'CallExpression'
+              || lastArg.name === 'reply') {
+            callPath.value.arguments[callPath.value.arguments.length - 1] =
+              codeshift.objectExpression([
+                codeshift.objectProperty(
+                  codeshift.identifier('response'),
+                  lastArg
+                )
+              ]);
+          }
         }
       });
 
