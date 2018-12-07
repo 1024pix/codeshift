@@ -56,13 +56,24 @@ describe('Unit | Controller | assessment-results', () => {
 
     it('should evaluate the assessment', () => {
       // when
-      assessmentResultController.evaluate(request, replyStub);
+      const promise = assessmentResultController.evaluate(request, replyStub);
 
       // then
-      expect(usecases.createAssessmentResultForCompletedCertification).to.have.been.calledWith({
-        assessmentId: '22',
-        forceRecomputeResult: false,
+      return promise.then(() => {
+        expect(1).to.equal(2);
+        expect(usecases.createAssessmentResultForCompletedCertification).to.have.been.calledWith({
+          assessmentId: '22',
+          forceRecomputeResult: false,
+        });
       });
+    });
+
+    it('should ignore promise.catch', () => {
+      // when
+      const promise = assessmentResultController.evaluate(request, replyStub);
+
+      // then
+      return promise.catch(() => { });
     });
   });
 });

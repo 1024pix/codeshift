@@ -39,6 +39,8 @@ function anyOf(...types) {
   }
 }
 
+const anyFunction = anyOf(codeshift.FunctionExpression, codeshift.ArrowFunctionExpression, codeshift.FunctionDeclaration);
+
 function promisifyCall(path) {
   const callback = path.value.arguments.pop();
   const newExpr = codeshift.callExpression(
@@ -152,7 +154,7 @@ module.exports = {
           ]);
         codeshift(expr.parentPath).replaceWith(newExpr)
           .insertAfter("expect(res.statusCode).to.equal(200);");
-        codeshift(expr).closest(anyOf(codeshift.FunctionExpression, codeshift.ArrowFunctionExpression))
+        codeshift(expr).closest(anyFunction)
           .forEach(fnexpr => {
             fnexpr.value.async = true;
             fnexpr.value.params.pop();
@@ -167,7 +169,7 @@ module.exports = {
              expr => normalSource(expr.callee) === 'server.inject' && expr.arguments.length == 2)
       .forEach(path => {
         promisifyCall(path);
-        codeshift(path).closest(anyOf(codeshift.FunctionExpression, codeshift.ArrowFunctionExpression))
+        codeshift(path).closest(anyFunction)
           .forEach(fnpath => {
             if (fnpath.value.params.length === 1) {
               const doneName = fnpath.value.params[0].name;
@@ -197,6 +199,37 @@ module.exports = {
             });
         });
     });
+  },
+
+  asyncifyControllerTest(ast) {
+    // promise = ...ontroller....(...)
+    ast.find(codeshift.VariableDeclarator,
+             decl => decl.id.name === 'promise'
+              && decl.init
+              && decl.init.type === 'CallExpression'
+              && decl.init.callee.type === 'MemberExpression'
+              && /ontroller$/.test(decl.init.callee.object.name))
+      .forEach((path) => {
+        const func = codeshift(path).closest(anyFunction).nodes()[0];
+
+        codeshift(func).find(codeshift.ReturnStatement,
+                             ret => ret.argument.type === 'CallExpression'
+                              && ret.argument.callee.type === 'MemberExpression'
+                              && ret.argument.callee.object.name === 'promise'
+                              && ret.argument.callee.property.name === 'then'
+                            )
+          .forEach(retPath => {
+            func.async = true;
+            path.value.id.name = 'response';
+            path.value.init = codeshift.awaitExpression(path.value.init);
+
+            const statements = retPath.value.argument.arguments[0].body.body;
+            statements.reverse().forEach(st => retPath.insertAfter(st));
+            retPath.insertAfter("// then");
+            codeshift(retPath).remove();
+          });
+
+      });
   },
 
 };

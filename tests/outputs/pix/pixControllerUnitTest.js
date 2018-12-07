@@ -54,17 +54,28 @@ describe('Unit | Controller | assessment-results', () => {
       sandbox.restore();
     });
 
-    it('should evaluate the assessment', () => {
+    it('should evaluate the assessment', async () => {
       // when
-      assessmentResultController.evaluate(request, {
+      const response = await assessmentResultController.evaluate(request, {
         response: replyStub
       });
 
       // then
+      expect(1).to.equal(2);
       expect(usecases.createAssessmentResultForCompletedCertification).to.have.been.calledWith({
         assessmentId: '22',
         forceRecomputeResult: false,
       });
+    });
+
+    it('should ignore promise.catch', () => {
+      // when
+      const promise = assessmentResultController.evaluate(request, {
+        response: replyStub
+      });
+
+      // then
+      return promise.catch(() => { });
     });
   });
 });
